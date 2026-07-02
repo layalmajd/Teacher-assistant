@@ -116,6 +116,18 @@ def sync_database_url(database_url: str) -> str:
     return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
 
+def async_database_url_and_connect_args(database_url: str) -> tuple[str, dict[str, bool]]:
+    parts = urlsplit(database_url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    requires_ssl = query.get("ssl") == "require" or query.get("sslmode") == "require"
+    query.pop("ssl", None)
+    query.pop("sslmode", None)
+    normalized_url = urlunsplit(
+        (parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment)
+    )
+    return normalized_url, {"ssl": True} if requires_ssl else {}
+
+
 @lru_cache
 def get_settings() -> Settings:
     return Settings()

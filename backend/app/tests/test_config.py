@@ -1,6 +1,6 @@
 import pytest
 
-from app.core.config import parse_string_list, sync_database_url
+from app.core.config import async_database_url_and_connect_args, parse_string_list, sync_database_url
 
 
 def test_parse_string_list_accepts_json_array() -> None:
@@ -23,3 +23,12 @@ def test_sync_database_url_converts_asyncpg_ssl_for_psycopg() -> None:
     assert sync_database_url(
         "postgresql+asyncpg://user:pass@example.com/db?ssl=require"
     ) == "postgresql+psycopg://user:pass@example.com/db?sslmode=require"
+
+
+def test_async_database_url_converts_ssl_query_to_connect_args() -> None:
+    url, connect_args = async_database_url_and_connect_args(
+        "postgresql+asyncpg://user:pass@example.com/db?ssl=require"
+    )
+
+    assert url == "postgresql+asyncpg://user:pass@example.com/db"
+    assert connect_args == {"ssl": True}
