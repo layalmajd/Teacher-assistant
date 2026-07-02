@@ -1,6 +1,7 @@
 import json
 from functools import lru_cache
 from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -103,6 +104,16 @@ def parse_string_list(value: str | list[str]) -> list[str]:
         return [str(item).strip() for item in parsed if str(item).strip()]
 
     return [item.strip() for item in stripped.split(",") if item.strip()]
+
+
+def sync_database_url(database_url: str) -> str:
+    url = database_url.replace("+asyncpg", "+psycopg")
+    parts = urlsplit(url)
+    query = dict(parse_qsl(parts.query, keep_blank_values=True))
+    if query.get("ssl") == "require":
+        query.pop("ssl")
+        query["sslmode"] = "require"
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, urlencode(query), parts.fragment))
 
 
 @lru_cache

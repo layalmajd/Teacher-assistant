@@ -1,6 +1,6 @@
 import pytest
 
-from app.core.config import parse_string_list
+from app.core.config import parse_string_list, sync_database_url
 
 
 def test_parse_string_list_accepts_json_array() -> None:
@@ -17,3 +17,9 @@ def test_parse_string_list_accepts_comma_separated_values() -> None:
 def test_parse_string_list_rejects_non_array_json() -> None:
     with pytest.raises(ValueError, match="Expected a JSON array"):
         parse_string_list('{"origin":"https://example.com"}')
+
+
+def test_sync_database_url_converts_asyncpg_ssl_for_psycopg() -> None:
+    assert sync_database_url(
+        "postgresql+asyncpg://user:pass@example.com/db?ssl=require"
+    ) == "postgresql+psycopg://user:pass@example.com/db?sslmode=require"
