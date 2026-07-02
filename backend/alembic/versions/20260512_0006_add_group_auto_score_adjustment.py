@@ -9,6 +9,7 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 from alembic import op
+from sqlalchemy import inspect
 
 # revision identifiers, used by Alembic.
 revision: str = "20260512_0006"
@@ -18,6 +19,11 @@ depends_on: Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    bind = op.get_bind()
+    columns = {column["name"] for column in inspect(bind).get_columns("assignment_groups")}
+    if "enable_auto_score_adjustment" in columns:
+        return
+
     op.add_column(
         "assignment_groups",
         sa.Column(
@@ -31,4 +37,9 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    bind = op.get_bind()
+    columns = {column["name"] for column in inspect(bind).get_columns("assignment_groups")}
+    if "enable_auto_score_adjustment" not in columns:
+        return
+
     op.drop_column("assignment_groups", "enable_auto_score_adjustment")
