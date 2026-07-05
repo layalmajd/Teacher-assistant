@@ -13,7 +13,6 @@ import { Button } from "@/components/shared/button";
 import { Card } from "@/components/shared/card";
 import { Input } from "@/components/shared/input";
 import { getUserFacingErrorMessage } from "@/lib/error-messages";
-import { Textarea } from "@/components/shared/textarea";
 import { applyManualAdjustments, fetchEvaluationDetail } from "@/services/evaluations";
 
 const optionalNumber = z.preprocess(
@@ -39,6 +38,31 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
+function ScorePanel({
+  label,
+  value,
+  accent = false,
+}: {
+  label: string;
+  value: string | number | null | undefined;
+  accent?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-2xl border p-4 ${
+        accent
+          ? "border-primary/25 bg-primary/10"
+          : "border-border/55 bg-muted/65"
+      }`}
+    >
+      <p className="text-sm font-semibold text-foreground/65">{label}</p>
+      <p className="mt-2 text-3xl font-extrabold tracking-normal text-foreground">
+        {value ?? "-"}
+      </p>
+    </div>
+  );
+}
+
 function toPoints(rawScore: number | null | undefined, weight: number, gradeScale: number) {
   if (rawScore == null || gradeScale <= 0) {
     return null;
@@ -51,6 +75,44 @@ function toRawScore(points: number | null, weight: number, gradeScale: number) {
     return null;
   }
   return Math.round(((points / weight) * gradeScale) * 100) / 100;
+}
+
+function MixedDirectionText({ text }: { text: string }) {
+  const parts = text.split(/([A-Za-z][A-Za-z0-9_./()[\],:'"-]*(?:\s+[A-Za-z0-9_./()[\],:'"-]+)*)/g);
+
+  return (
+    <>
+      {parts.map((part, index) =>
+        /[A-Za-z]/.test(part) ? (
+          <bdi key={`${part}-${index}`} dir="ltr" style={{ unicodeBidi: "isolate" }}>
+            {part}
+          </bdi>
+        ) : (
+          <span key={`${part}-${index}`}>{part}</span>
+        ),
+      )}
+    </>
+  );
+}
+
+function FeedbackDisplayBox({ text }: { text: string | null | undefined }) {
+  const lines = (text || "")
+    .replace(/\r/g, "")
+    .split("\n")
+    .map((line) => line.trimEnd());
+
+  return (
+    <div
+      className="min-h-44 w-full whitespace-pre-wrap rounded-xl border border-border/75 bg-card/70 px-3 py-2 text-sm font-medium leading-7 text-foreground outline-none"
+      dir="rtl"
+    >
+      {lines.map((line, index) => (
+        <p key={`${line}-${index}`} className="text-right">
+          <MixedDirectionText text={line || " "} />
+        </p>
+      ))}
+    </div>
+  );
 }
 
 export function EvaluationDetailPage() {
@@ -113,35 +175,50 @@ export function EvaluationDetailPage() {
   return (
     <div className="space-y-6">
       <PageHeader title={t("evaluations.title")} subtitle={t("evaluations.subtitle")} />
-      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <Card className="p-5">
-          <div className="mb-4 flex flex-wrap gap-2">
-            {evaluation?.is_latest ? <Badge>{t("evaluations.latest")}</Badge> : null}
-            {evaluation?.provider_name ? <Badge>{evaluation.provider_name}</Badge> : null}
-          </div>
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl bg-muted/70 p-4">
-              <p className="text-sm text-foreground/70">{t("evaluations.totalAiScore")}</p>
-              <p className="mt-2 text-2xl font-bold">{evaluation?.total_ai_score ?? "-"}</p>
+      <div className="space-y-6">
+        <Card className="p-5 sm:p-6">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap gap-2">
+              {evaluation?.is_latest ? <Badge>{t("evaluations.latest")}</Badge> : null}
+              {evaluation?.provider_name ? <Badge>{evaluation.provider_name}</Badge> : null}
+              {evaluation?.model_name ? <Badge>{evaluation.model_name}</Badge> : null}
             </div>
-            <div className="rounded-2xl bg-muted/70 p-4">
-              <p className="text-sm text-foreground/70">{t("evaluations.finalAdjusted")}</p>
-              <p className="mt-2 text-2xl font-bold">{evaluation?.final_adjusted_score ?? "-"}</p>
-            </div>
+            <p className="text-sm font-semibold text-foreground/55">
+              {evaluation?.submission_filename ?? "-"}
+            </p>
           </div>
-          <div className="mt-5 space-y-2">
-            <h3 className="font-semibold">{t("evaluations.summaryFeedback")}</h3>
-            <p className="text-sm leading-7 text-foreground/70">{evaluation?.ai_feedback}</p>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <ScorePanel
+              label={t("evaluations.finalAdjusted")}
+              value={evaluation?.final_adjusted_score}
+              accent
+            />
+            <ScorePanel
+              label={t("evaluations.liveAdjustedPreview")}
+              value={liveAdjustedScore}
+            />
+            <ScorePanel
+              label={t("evaluations.totalAiScore")}
+              value={evaluation?.total_ai_score}
+            />
+            <ScorePanel
+              label={t("groups.gradeScale")}
+              value={gradeScale}
+            />
+          </div>
+
+          <div className="mt-5 rounded-2xl border border-border/55 bg-background/70 p-4 sm:p-5">
+            <h3 className="text-base font-bold">{t("evaluations.summaryFeedback")}</h3>
+            <p className="mt-2 max-w-5xl text-sm leading-7 text-foreground/70">
+              {evaluation?.ai_feedback || "-"}
+            </p>
           </div>
         </Card>
 
-        <Card className="p-5" id="manual-adjustments">
-          <div className="mb-4 rounded-2xl bg-muted/70 p-4">
-            <p className="text-sm font-semibold">{t("evaluations.liveAdjustedPreview")}</p>
-            <p className="mt-2 text-2xl font-bold">{liveAdjustedScore ?? "-"}</p>
-          </div>
+        <Card className="p-5 sm:p-6" id="manual-adjustments">
           <form
-            className="space-y-4"
+            className="space-y-5"
             onSubmit={form.handleSubmit((values) => {
               if (!evaluation) {
                 return;
@@ -175,9 +252,17 @@ export function EvaluationDetailPage() {
             })}
           >
             {evaluation?.criterion_scores.map((score, index) => (
-              <div key={score.id} className="rounded-2xl bg-muted/70 p-4">
-                <div className="mb-3 flex flex-wrap items-center gap-2">
-                  <h3 className="font-semibold">{score.criterion_name}</h3>
+              <div
+                key={score.id}
+                className="rounded-2xl border border-border/55 bg-muted/55 p-4 sm:p-5"
+              >
+                <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h3 className="text-lg font-extrabold">{score.criterion_name}</h3>
+                    <p className="mt-1 text-sm text-foreground/55">
+                      {t("evaluations.weightContribution", { weight: score.weight })}
+                    </p>
+                  </div>
                   <Badge>{score.weight}</Badge>
                 </div>
                 {(() => {
@@ -186,64 +271,75 @@ export function EvaluationDetailPage() {
                     ? (score.ai_score / gradeScale) * 100
                     : null;
                   const watchedPoints = watchedItems[index]?.manual_points;
-                  const manualPercent = watchedPoints != null && score.weight > 0
+                  const hasWatchedManual = typeof watchedPoints === "number" && Number.isFinite(watchedPoints);
+                  const manualPercent = hasWatchedManual && score.weight > 0
                     ? (watchedPoints / score.weight) * 100
                     : null;
                   return (
-                    <div className="mb-4 rounded-2xl border border-border/60 bg-background/80 p-3 text-sm text-foreground/70">
-                      <p>
-                        {t("evaluations.currentAiScore", {
-                          points: aiPoints?.toFixed(2) ?? "-",
-                          weight: score.weight,
-                          percent: aiPercent?.toFixed(1) ?? "-",
-                        })}
-                      </p>
-                      {score.manual_score != null ? (
-                        <p className="mt-2">
-                          {t("evaluations.currentManualScore", {
-                            points: toPoints(score.manual_score, score.weight, gradeScale)?.toFixed(2) ?? "-",
+                    <div className="mb-5 grid gap-3 xl:grid-cols-3">
+                      <div className="rounded-2xl border border-border/60 bg-background/85 p-4 text-sm text-foreground/70">
+                        <p className="font-semibold text-foreground/55">{t("evaluations.totalAiScore")}</p>
+                        <p className="mt-2 text-base font-extrabold text-foreground">
+                          {t("evaluations.currentAiScore", {
+                            points: aiPoints?.toFixed(2) ?? "-",
                             weight: score.weight,
-                            percent: ((score.manual_score / gradeScale) * 100).toFixed(1),
+                            percent: aiPercent?.toFixed(1) ?? "-",
                           })}
                         </p>
-                      ) : null}
-                      {manualPercent != null ? (
-                        <p className="mt-2">
-                          {t("evaluations.manualPercentPreview", {
-                            percent: manualPercent.toFixed(1),
-                          })}
+                      </div>
+                      <div className="rounded-2xl border border-border/60 bg-background/85 p-4 text-sm text-foreground/70">
+                        <label className="font-semibold text-foreground/55">
+                          {t("evaluations.manualScoreOutOfWeight", { weight: score.weight })}
+                        </label>
+                        <p className="mt-2 min-h-6 font-bold text-foreground">
+                          {score.manual_score != null
+                            ? t("evaluations.currentManualScore", {
+                                points: toPoints(score.manual_score, score.weight, gradeScale)?.toFixed(2) ?? "-",
+                                weight: score.weight,
+                                percent: ((score.manual_score / gradeScale) * 100).toFixed(1),
+                              })
+                            : "-"}
                         </p>
-                      ) : null}
+                        <Input
+                          {...form.register(`items.${index}.manual_points`, { valueAsNumber: true })}
+                          className="mt-3"
+                          type="number"
+                          step="0.01"
+                          placeholder={toPoints(score.ai_score, score.weight, gradeScale)?.toFixed(2) ?? ""}
+                        />
+                        <input
+                          type="hidden"
+                          {...form.register(`items.${index}.criterion_score_id`)}
+                          value={score.id}
+                        />
+                      </div>
+                      <div className="rounded-2xl border border-primary/25 bg-primary/10 p-4 text-sm text-foreground/70">
+                        <p className="font-semibold text-foreground/55">
+                          {t("evaluations.liveAdjustedPreview")}
+                        </p>
+                        <p className="mt-2 text-base font-extrabold text-foreground">
+                          {manualPercent != null
+                            ? t("evaluations.manualPercentPreview", {
+                                percent: manualPercent.toFixed(1),
+                              })
+                            : "-"}
+                        </p>
+                      </div>
                     </div>
                   );
                 })()}
-                <div className="grid gap-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">
-                      {t("evaluations.manualScoreOutOfWeight", { weight: score.weight })}
-                    </label>
-                    <Input
-                      {...form.register(`items.${index}.manual_points`)}
-                      type="number"
-                      step="0.01"
-                      placeholder={toPoints(score.ai_score, score.weight, gradeScale)?.toFixed(2) ?? ""}
-                    />
-                    <input
-                      type="hidden"
-                      {...form.register(`items.${index}.criterion_score_id`)}
-                      value={score.id}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">{t("evaluations.criterionFeedback")}</label>
-                    <Textarea {...form.register(`items.${index}.feedback`)} />
-                  </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">{t("evaluations.criterionFeedback")}</label>
+                  <FeedbackDisplayBox text={watchedItems[index]?.feedback} />
+                  <input type="hidden" {...form.register(`items.${index}.feedback`)} />
                 </div>
               </div>
             ))}
-            <Button className="w-full" type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? t("common.loading") : t("evaluations.applyAdjustments")}
-            </Button>
+            <div className="sticky bottom-4 z-10 flex justify-end">
+              <Button className="w-full shadow-lg sm:w-auto" type="submit" disabled={mutation.isPending}>
+                {mutation.isPending ? t("common.loading") : t("evaluations.applyAdjustments")}
+              </Button>
+            </div>
           </form>
         </Card>
       </div>

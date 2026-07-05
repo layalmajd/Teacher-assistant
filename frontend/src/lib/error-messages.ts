@@ -55,6 +55,9 @@ function mapRawMessageToFriendlyText(rawMessage?: string | null) {
   if (includesAny(message, ["invalid credentials"])) {
     return translate("errors.auth.invalidCredentials");
   }
+  if (includesAny(message, ["current password is incorrect"])) {
+    return translate("errors.auth.currentPasswordIncorrect");
+  }
   if (includesAny(message, ["unauthorized", "authentication failed", "invalid refresh token"])) {
     return translate("errors.auth.sessionExpired");
   }

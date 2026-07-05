@@ -1,6 +1,6 @@
 ﻿import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation } from "@tanstack/react-query";
-import { useForm } from "react-hook-form";
+import { FieldErrors, useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -14,12 +14,16 @@ import { AuthFormShell } from "@/modules/auth/components/auth-form-shell";
 import { register } from "@/services/auth";
 
 const schema = z.object({
-  username: z.string().min(3),
-  email: z.string().email(),
-  password: z.string().min(8),
+  username: z.string().min(1, "auth.usernameRequired").min(3, "auth.usernameMin"),
+  email: z.string().min(1, "auth.emailRequired").email("auth.emailInvalid"),
+  password: z.string().min(1, "auth.passwordRequired").min(8, "auth.passwordMin"),
 });
 
 type FormValues = z.infer<typeof schema>;
+
+function getFirstValidationMessage(errors: FieldErrors<FormValues>) {
+  return errors.username?.message || errors.email?.message || errors.password?.message;
+}
 
 export function RegisterPage() {
   const { t } = useTranslation();
@@ -46,19 +50,34 @@ export function RegisterPage() {
     <AuthFormShell title={t("auth.registerTitle")} subtitle={t("auth.registerSubtitle")}>
       <form
         className="space-y-5"
-        onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
+        onSubmit={form.handleSubmit(
+          (values) => mutation.mutate(values),
+          (errors) => {
+            const message = getFirstValidationMessage(errors);
+            toast.error(message ? t(message) : t("errors.validation.invalidRequest"));
+          },
+        )}
       >
         <div className="space-y-2">
           <label className="text-sm font-medium">{t("auth.username")}</label>
           <Input {...form.register("username")} autoComplete="username" />
+          {form.formState.errors.username?.message ? (
+            <p className="text-sm font-semibold text-danger">{t(form.formState.errors.username.message)}</p>
+          ) : null}
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium">{t("auth.email")}</label>
           <Input {...form.register("email")} type="email" autoComplete="email" />
+          {form.formState.errors.email?.message ? (
+            <p className="text-sm font-semibold text-danger">{t(form.formState.errors.email.message)}</p>
+          ) : null}
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium">{t("auth.password")}</label>
           <Input {...form.register("password")} type="password" autoComplete="new-password" />
+          {form.formState.errors.password?.message ? (
+            <p className="text-sm font-semibold text-danger">{t(form.formState.errors.password.message)}</p>
+          ) : null}
         </div>
         <Button className="mt-2 w-full" type="submit" disabled={mutation.isPending}>
           {mutation.isPending ? t("common.loading") : t("auth.register")}

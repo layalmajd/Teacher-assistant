@@ -121,12 +121,17 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
   }
 
   if (response.status === 401) {
-    useAuthStore.getState().clearSession();
-    throw createApiRequestError({
-      code: "authentication_error",
-      status: response.status,
-      rawMessage: "Unauthorized",
-    });
+    const error = await parseErrorResponse(response);
+    const rawMessage = error.rawMessage.toLowerCase();
+    const isCredentialError =
+      rawMessage.includes("invalid credentials") ||
+      rawMessage.includes("current password is incorrect");
+
+    if (shouldTryRefresh(path) && !isCredentialError) {
+      useAuthStore.getState().clearSession();
+    }
+
+    throw error;
   }
 
   if (!response.ok) {

@@ -18,6 +18,129 @@ import type { AssignmentGroup } from "@/types/api";
 
 const DEFAULT_PAGE_SIZE = 10;
 
+function splitFeedbackText(text: string) {
+  return text
+    .replace(/\r/g, "")
+    .replace(/\s*تفصيل البنود:\s*/g, "\nتفصيل البنود:\n")
+    .replace(/\s*Requirement audit:\s*/gi, "\nRequirement audit:\n")
+    .replace(/\s+-\s+/g, "\n- ")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function parseAuditLine(line: string) {
+  const cleanLine = line.replace(/^-\s*/, "").trim();
+  const statusMatch = cleanLine.match(
+    /^(.*?):\s*(متحقق|جزئي|ناقص|غير واضح|met|partial|missing|unknown)\s*([؛;,،]?\s*.*)?$/i,
+  );
+
+  if (!statusMatch) {
+    return null;
+  }
+
+  const detail = statusMatch[3] ?? "";
+  const evidenceMatch = detail.match(/(?:الدليل|evidence)\s*:\s*([\s\S]*?)(?=(?:[؛;,،]\s*(?:السبب|reason)\s*:)|$)/i);
+  const reasonMatch = detail.match(/(?:السبب|reason)\s*:\s*([\s\S]*)$/i);
+
+  return {
+    requirement: statusMatch[1].trim(),
+    status: statusMatch[2].trim(),
+    evidence: evidenceMatch?.[1]?.replace(/^[؛;,،]\s*/, "").trim(),
+    reason: reasonMatch?.[1]?.replace(/^[؛;,،]\s*/, "").trim(),
+  };
+}
+
+function statusClassName(status: string) {
+  const normalizedStatus = status.toLowerCase();
+  if (status === "متحقق" || normalizedStatus === "met") {
+    return "border-success/30 bg-success/10 text-success";
+  }
+  if (status === "جزئي" || normalizedStatus === "partial") {
+    return "border-warning/35 bg-warning/10 text-warning";
+  }
+  if (status === "ناقص" || normalizedStatus === "missing") {
+    return "border-danger/30 bg-danger/10 text-danger";
+  }
+  return "border-border/70 bg-muted/70 text-foreground/65";
+}
+
+function FeedbackText({ text, fallback }: { text: string | null | undefined; fallback: string }) {
+  const lines = text ? splitFeedbackText(text) : [];
+
+  if (!lines.length) {
+    return <p className="text-right text-sm text-foreground/55">{fallback}</p>;
+  }
+
+  return (
+    <div className="space-y-2 text-right text-sm leading-8 text-foreground/72" dir="rtl">
+      {lines.map((line, index) => {
+        const isBullet = line.startsWith("-");
+        const cleanLine = isBullet ? line.replace(/^-\s*/, "") : line;
+        const auditLine = isBullet ? parseAuditLine(line) : null;
+        const isHeading = cleanLine.endsWith(":");
+
+        if (auditLine) {
+          return (
+            <div
+              key={`${cleanLine}-${index}`}
+              className="rounded-xl border border-border/55 bg-background/75 p-4"
+            >
+              <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+                <p className="min-w-0 flex-1 font-bold text-foreground/85" dir="auto">
+                  {auditLine.requirement}
+                </p>
+                <span className={cn("shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold", statusClassName(auditLine.status))}>
+                  {auditLine.status}
+                </span>
+              </div>
+              <div className="grid gap-2">
+                {auditLine.evidence ? (
+                  <div className="rounded-lg bg-muted/55 px-3 py-2">
+                    <p className="mb-1 text-xs font-bold text-foreground/50">الدليل من الملف</p>
+                    <p className="text-sm leading-7 text-foreground/70" dir="auto">
+                      {auditLine.evidence}
+                    </p>
+                  </div>
+                ) : null}
+                {auditLine.reason ? (
+                  <div className="rounded-lg bg-muted/55 px-3 py-2">
+                    <p className="mb-1 text-xs font-bold text-foreground/50">سبب الخصم</p>
+                    <p className="text-sm leading-7 text-foreground/70" dir="rtl">
+                      {auditLine.reason}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          );
+        }
+
+        if (isBullet) {
+          return (
+            <div key={`${cleanLine}-${index}`} className="rounded-xl border border-border/55 bg-background/70 px-4 py-3">
+              <p className="whitespace-pre-wrap text-right" dir="auto">{cleanLine}</p>
+            </div>
+          );
+        }
+
+        return (
+          <p
+            key={`${cleanLine}-${index}`}
+            className={cn(
+              "whitespace-pre-wrap text-right",
+              isHeading && "pt-1 text-base font-extrabold text-foreground",
+            )}
+            dir="rtl"
+          >
+            {cleanLine}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 function EvaluationInlineDetails({
   evaluationId,
   gradeScale,
@@ -44,7 +167,7 @@ function EvaluationInlineDetails({
     <div className="space-y-4 rounded-2xl bg-muted/50 p-4">
       <div className="space-y-2">
         <h4 className="font-semibold">{t("evaluations.summaryFeedback")}</h4>
-        <p className="text-sm leading-7 text-foreground/70">{detailQuery.data.ai_feedback}</p>
+        <FeedbackText text={detailQuery.data.ai_feedback} fallback={t("common.notAvailable")} />
       </div>
       <div className="grid gap-3">
         {detailQuery.data.criterion_scores.map((score) => {
@@ -64,7 +187,9 @@ function EvaluationInlineDetails({
                   })}
                 </span>
               </div>
-              <p className="mt-2 text-sm leading-7 text-foreground/70">{score.feedback || t("common.notAvailable")}</p>
+              <div className="mt-3">
+                <FeedbackText text={score.feedback} fallback={t("common.notAvailable")} />
+              </div>
             </div>
           );
         })}

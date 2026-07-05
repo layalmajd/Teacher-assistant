@@ -147,6 +147,8 @@ Output requirements:
 - Do NOT include "could be improved", "needs more detail", "lacks depth",
   or any general improvement language in feedback or requirements_audit.
 - `summary_feedback` and every `feedback` in `criterion_scores` MUST be written in {language_label}.
+- `requirements_audit.requirement` and `requirements_audit.missing_or_weak_reason` MUST also be written in {language_label}.
+- `requirements_audit.evidence` may contain a short direct quote from the submission in its original language. Do not mix that evidence quote into the feedback sentence.
 - Do NOT output extra fields other than the specified JSON shape.
 - If there is no deduction for a criterion, state: "تم استيفاء المعيار بالكامل ولم يتم الخصم" (if Arabic) or "Criterion fully met, no deductions" (if English).
 """.strip()
