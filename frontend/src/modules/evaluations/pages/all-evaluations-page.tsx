@@ -12,191 +12,12 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { Input } from "@/components/shared/input";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 import { cn } from "@/lib/cn";
-import { fetchEvaluationDetail, fetchAllEvaluations } from "@/services/evaluations";
+import { EvaluationQuickSummary } from "@/modules/evaluations/components/evaluation-quick-summary";
+import { fetchAllEvaluations } from "@/services/evaluations";
 import { fetchGroups } from "@/services/groups";
 import type { AssignmentGroup } from "@/types/api";
 
 const DEFAULT_PAGE_SIZE = 10;
-
-function splitFeedbackText(text: string) {
-  return text
-    .replace(/\r/g, "")
-    .replace(/\s*تفصيل البنود:\s*/g, "\nتفصيل البنود:\n")
-    .replace(/\s*Requirement audit:\s*/gi, "\nRequirement audit:\n")
-    .replace(/\s+-\s+/g, "\n- ")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-}
-
-function parseAuditLine(line: string) {
-  const cleanLine = line.replace(/^-\s*/, "").trim();
-  const statusMatch = cleanLine.match(
-    /^(.*?):\s*(متحقق|جزئي|ناقص|غير واضح|met|partial|missing|unknown)\s*([؛;,،]?\s*.*)?$/i,
-  );
-
-  if (!statusMatch) {
-    return null;
-  }
-
-  const detail = statusMatch[3] ?? "";
-  const evidenceMatch = detail.match(/(?:الدليل|evidence)\s*:\s*([\s\S]*?)(?=(?:[؛;,،]\s*(?:السبب|reason)\s*:)|$)/i);
-  const reasonMatch = detail.match(/(?:السبب|reason)\s*:\s*([\s\S]*)$/i);
-
-  return {
-    requirement: statusMatch[1].trim(),
-    status: statusMatch[2].trim(),
-    evidence: evidenceMatch?.[1]?.replace(/^[؛;,،]\s*/, "").trim(),
-    reason: reasonMatch?.[1]?.replace(/^[؛;,،]\s*/, "").trim(),
-  };
-}
-
-function statusClassName(status: string) {
-  const normalizedStatus = status.toLowerCase();
-  if (status === "متحقق" || normalizedStatus === "met") {
-    return "border-success/30 bg-success/10 text-success";
-  }
-  if (status === "جزئي" || normalizedStatus === "partial") {
-    return "border-warning/35 bg-warning/10 text-warning";
-  }
-  if (status === "ناقص" || normalizedStatus === "missing") {
-    return "border-danger/30 bg-danger/10 text-danger";
-  }
-  return "border-border/70 bg-muted/70 text-foreground/65";
-}
-
-function FeedbackText({ text, fallback }: { text: string | null | undefined; fallback: string }) {
-  const lines = text ? splitFeedbackText(text) : [];
-
-  if (!lines.length) {
-    return <p className="text-right text-sm text-foreground/55">{fallback}</p>;
-  }
-
-  return (
-    <div className="space-y-2 text-right text-sm leading-8 text-foreground/72" dir="rtl">
-      {lines.map((line, index) => {
-        const isBullet = line.startsWith("-");
-        const cleanLine = isBullet ? line.replace(/^-\s*/, "") : line;
-        const auditLine = isBullet ? parseAuditLine(line) : null;
-        const isHeading = cleanLine.endsWith(":");
-
-        if (auditLine) {
-          return (
-            <div
-              key={`${cleanLine}-${index}`}
-              className="rounded-xl border border-border/55 bg-background/75 p-4"
-            >
-              <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-                <p className="min-w-0 flex-1 font-bold text-foreground/85" dir="auto">
-                  {auditLine.requirement}
-                </p>
-                <span className={cn("shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold", statusClassName(auditLine.status))}>
-                  {auditLine.status}
-                </span>
-              </div>
-              <div className="grid gap-2">
-                {auditLine.evidence ? (
-                  <div className="rounded-lg bg-muted/55 px-3 py-2">
-                    <p className="mb-1 text-xs font-bold text-foreground/50">الدليل من الملف</p>
-                    <p className="text-sm leading-7 text-foreground/70" dir="auto">
-                      {auditLine.evidence}
-                    </p>
-                  </div>
-                ) : null}
-                {auditLine.reason ? (
-                  <div className="rounded-lg bg-muted/55 px-3 py-2">
-                    <p className="mb-1 text-xs font-bold text-foreground/50">سبب الخصم</p>
-                    <p className="text-sm leading-7 text-foreground/70" dir="rtl">
-                      {auditLine.reason}
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-            </div>
-          );
-        }
-
-        if (isBullet) {
-          return (
-            <div key={`${cleanLine}-${index}`} className="rounded-xl border border-border/55 bg-background/70 px-4 py-3">
-              <p className="whitespace-pre-wrap text-right" dir="auto">{cleanLine}</p>
-            </div>
-          );
-        }
-
-        return (
-          <p
-            key={`${cleanLine}-${index}`}
-            className={cn(
-              "whitespace-pre-wrap text-right",
-              isHeading && "pt-1 text-base font-extrabold text-foreground",
-            )}
-            dir="rtl"
-          >
-            {cleanLine}
-          </p>
-        );
-      })}
-    </div>
-  );
-}
-
-function EvaluationInlineDetails({
-  evaluationId,
-  gradeScale,
-}: {
-  evaluationId: string;
-  gradeScale: number;
-}) {
-  const { t } = useTranslation();
-  const detailQuery = useQuery({
-    queryKey: ["evaluation", evaluationId],
-    queryFn: () => fetchEvaluationDetail(evaluationId),
-    enabled: Boolean(evaluationId),
-  });
-
-  if (detailQuery.isPending) {
-    return <p className="text-sm text-foreground/60">{t("common.loading")}</p>;
-  }
-
-  if (!detailQuery.data) {
-    return <p className="text-sm text-foreground/60">{t("empty.noData")}</p>;
-  }
-
-  return (
-    <div className="space-y-4 rounded-2xl bg-muted/50 p-4">
-      <div className="space-y-2">
-        <h4 className="font-semibold">{t("evaluations.summaryFeedback")}</h4>
-        <FeedbackText text={detailQuery.data.ai_feedback} fallback={t("common.notAvailable")} />
-      </div>
-      <div className="grid gap-3">
-        {detailQuery.data.criterion_scores.map((score) => {
-          const rawScore = score.manual_score ?? score.ai_score ?? 0;
-          const percent = gradeScale > 0 ? (rawScore / gradeScale) * 100 : 0;
-          const points = (score.weight * percent) / 100;
-          return (
-            <div key={score.id} className="rounded-2xl border border-border/60 bg-background/80 p-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="font-semibold">{score.criterion_name}</p>
-                <Badge>{score.weight}</Badge>
-                <span className="text-xs text-foreground/60">
-                  {t("submissions.criterionScoreFormat", {
-                    score: points.toFixed(2),
-                    weight: score.weight,
-                    percent: percent.toFixed(1),
-                  })}
-                </span>
-              </div>
-              <div className="mt-3">
-                <FeedbackText text={score.feedback} fallback={t("common.notAvailable")} />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
 
 function GroupFilterDropdown({
   groups,
@@ -415,53 +236,79 @@ export function AllEvaluationsPage() {
         {visibleEvaluations.length ? (
           <div className="space-y-3">
             {visibleEvaluations.map((evaluation) => (
-              <div key={evaluation.id} className="rounded-2xl border border-border/60 bg-background/80 p-4">
-                <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap gap-2">
+              <div
+                key={evaluation.id}
+                className="overflow-hidden rounded-2xl border border-border/60 bg-background/85"
+              >
+                <div className="space-y-3 p-4">
+                  <div className="min-w-0 space-y-2 text-start">
+                    <div className="flex flex-wrap items-center gap-1.5">
                       <Badge>#{evaluation.evaluation_number}</Badge>
                       {evaluation.is_latest ? <Badge>{t("evaluations.latest")}</Badge> : null}
                       {evaluation.provider_name ? <Badge>{evaluation.provider_name}</Badge> : null}
                     </div>
-                    <h3 className="font-semibold">{evaluation.submission_filename}</h3>
-                    <p className="text-sm text-foreground/70">
-                      {t("common.studentId")}: {evaluation.student_id || t("common.notAvailable")}
-                    </p>
-                    <p className="text-sm text-foreground/70">
-                      {t("groups.title")}: {evaluation.group_name}
-                    </p>
-                    <div className="flex flex-wrap gap-4 text-sm">
-                      <span>
-                        {t("evaluations.totalAiScore")}: {evaluation.total_ai_score?.toFixed(2) ?? "-"}
+                    <h3 className="max-w-5xl break-words text-start text-base font-extrabold leading-7 text-foreground sm:text-lg">
+                      <span className="sr-only">{t("common.filename")}: </span>
+                      <span className="inline-block max-w-full">
+                        <bdi dir="auto">{evaluation.submission_filename}</bdi>
                       </span>
-                      <span>
-                        {t("evaluations.finalAdjusted")}: {evaluation.final_adjusted_score?.toFixed(2) ?? "-"}
-                      </span>
+                    </h3>
+                  </div>
+
+                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-[1fr_1fr_1fr_1.45fr]">
+                    <div className="min-w-0 rounded-xl border border-primary/25 bg-primary/10 px-3 py-2">
+                      <p className="text-xs font-bold text-primary/75">{t("evaluations.finalAdjusted")}</p>
+                      <p className="mt-1 text-sm font-extrabold text-foreground">
+                        {evaluation.final_adjusted_score?.toFixed(2) ?? "-"}
+                      </p>
+                    </div>
+                    <div className="min-w-0 rounded-xl border border-border/50 bg-muted/25 px-3 py-2">
+                      <p className="text-xs font-bold text-foreground/45">{t("evaluations.totalAiScore")}</p>
+                      <p className="mt-1 text-sm font-extrabold text-foreground">
+                        {evaluation.total_ai_score?.toFixed(2) ?? "-"}
+                      </p>
+                    </div>
+                    <div className="min-w-0 rounded-xl border border-border/50 bg-muted/25 px-3 py-2">
+                      <p className="text-xs font-bold text-foreground/45">{t("common.studentId")}</p>
+                      <p className="mt-1 break-words text-sm font-bold text-foreground/75" dir="auto">
+                        {evaluation.student_id || t("common.notAvailable")}
+                      </p>
+                    </div>
+                    <div className="min-w-0 rounded-xl border border-border/50 bg-muted/25 px-3 py-2">
+                      <p className="text-xs font-bold text-foreground/45">{t("groups.title")}</p>
+                      <p className="mt-1 break-words text-sm font-bold leading-6 text-foreground/75" dir="auto">
+                        {evaluation.group_name}
+                      </p>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      onClick={() => setExpandedId((current) => (current === evaluation.id ? null : evaluation.id))}
-                    >
-                      {expandedId === evaluation.id
-                        ? t("evaluations.hideInlineDetails")
-                        : t("evaluations.showInlineDetails")}
-                    </Button>
-                    <Link to={`/evaluations/${evaluation.id}`}>
-                      <Button variant="ghost" type="button">
-                        {t("groups.details")}
-                      </Button>
-                    </Link>
-                    <Link to={`/evaluations/${evaluation.id}#manual-adjustments`}>
-                      <Button type="button">{t("submissions.manualAdjust")}</Button>
-                    </Link>
-                  </div>
                 </div>
+
+                <div className="flex flex-col gap-2 border-t border-border/50 bg-muted/10 p-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-start sm:px-4">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="h-10 w-full px-4 text-sm sm:w-auto"
+                    onClick={() => setExpandedId((current) => (current === evaluation.id ? null : evaluation.id))}
+                  >
+                    {expandedId === evaluation.id
+                      ? t("evaluations.hideQuickSummary")
+                      : t("evaluations.quickSummary")}
+                  </Button>
+                  <Link className="w-full sm:w-auto" to={`/evaluations/${evaluation.id}`}>
+                    <Button className="h-10 w-full px-4 text-sm sm:w-auto" type="button">
+                      {t("evaluations.viewEvaluation")}
+                    </Button>
+                  </Link>
+                  <Link className="w-full sm:w-auto" to={`/evaluations/${evaluation.id}#manual-adjustments`}>
+                    <Button className="h-10 w-full px-4 text-sm sm:w-auto" variant="ghost" type="button">
+                      {t("evaluations.editScore")}
+                    </Button>
+                  </Link>
+                </div>
+
                 {expandedId === evaluation.id ? (
-                  <div className="mt-4">
-                    <EvaluationInlineDetails evaluationId={evaluation.id} gradeScale={evaluation.grade_scale} />
+                  <div className="border-t border-border/55 p-4 sm:p-5">
+                    <EvaluationQuickSummary evaluationId={evaluation.id} />
                   </div>
                 ) : null}
               </div>

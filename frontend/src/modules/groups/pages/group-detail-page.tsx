@@ -168,7 +168,6 @@ export function GroupDetailPage() {
                     <div className="min-w-0 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge>{index + 1}</Badge>
-                        {criterion.is_manual ? <Badge>{t("groups.manual")}</Badge> : null}
                       </div>
                       <h4 className="break-words text-lg font-bold">{criterion.name}</h4>
                     </div>

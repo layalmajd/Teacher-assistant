@@ -60,8 +60,7 @@ const schema = z
         (criterion) =>
           criterion.name.trim() ||
           criterion.description.trim() ||
-          criterion.weight !== undefined ||
-          criterion.is_manual,
+          criterion.weight !== undefined,
       );
 
     for (const criterion of activeCriteria) {
@@ -97,8 +96,7 @@ const hasCriterionContent = (criterion: CriterionDraft) =>
   Boolean(
     criterion.name.trim() ||
       criterion.description.trim() ||
-      criterion.weight !== undefined ||
-      criterion.is_manual,
+      criterion.weight !== undefined,
   );
 
 const toFormValues = (group: AssignmentGroup): FormValues => ({
@@ -116,7 +114,7 @@ const toFormValues = (group: AssignmentGroup): FormValues => ({
             name: criterion.name,
             weight: criterion.weight,
             description: criterion.description ?? "",
-            is_manual: criterion.is_manual,
+            is_manual: false,
           }))
       : [blankCriterion()],
 });
@@ -266,7 +264,7 @@ export function GroupsPage() {
             name: criterion.name.trim(),
             weight: Number(criterion.weight),
             description: criterion.description.trim() || undefined,
-            is_manual: criterion.is_manual,
+            is_manual: false,
             sort_order: index,
           });
           createdCriteria += 1;
@@ -332,7 +330,7 @@ export function GroupsPage() {
           name: criterion.name.trim(),
           weight: Number(criterion.weight),
           description: criterion.description.trim() || undefined,
-          is_manual: criterion.is_manual,
+          is_manual: false,
           sort_order: index,
         };
         if (criterion.criterion_id) {
@@ -585,10 +583,6 @@ export function GroupsPage() {
                       <Textarea {...form.register(`criteria.${index}.description`)} className="min-h-20" />
                     </div>
 
-                    <label className="mt-4 flex items-center gap-3 text-sm">
-                      <input {...form.register(`criteria.${index}.is_manual`)} type="checkbox" className="size-4" />
-                      {t("groups.manual")}
-                    </label>
                   </div>
                 ))}
               </div>

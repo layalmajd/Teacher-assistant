@@ -1,6 +1,6 @@
 ﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Trash2, UploadCloud } from "lucide-react";
+import { Check, ChevronDown, Trash2, UploadCloud } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
@@ -16,7 +16,7 @@ import {
   getUserFacingErrorMessage,
   getUserFacingReason,
 } from "@/lib/error-messages";
-import { Select } from "@/components/shared/select";
+import { cn } from "@/lib/cn";
 import {
   cancelBatchEvaluations,
   fetchBatchEvaluationStatus,
@@ -34,7 +34,7 @@ import {
   updateSubmissionStudentId,
   uploadSubmissions,
 } from "@/services/submissions";
-import type { Submission, SubmissionReportRow } from "@/types/api";
+import type { AssignmentGroup, Submission, SubmissionReportRow } from "@/types/api";
 
 const DEFAULT_PAGE_SIZE = 25;
 const STUDENT_ID_PATTERN = /^\d{5,}$/;
@@ -61,6 +61,136 @@ type FilePreviewRow = {
   existing_submission_id: string | null;
   existing_submission_evaluated: boolean;
 };
+
+function GroupDropdown({
+  groups,
+  value,
+  isLoading,
+  onChange,
+}: {
+  groups: AssignmentGroup[];
+  value: string;
+  isLoading: boolean;
+  onChange: (value: string) => void;
+}) {
+  const { t } = useTranslation();
+  const [isOpen, setIsOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const selectedGroup = groups.find((group) => group.id === value);
+  const selectedLabel = selectedGroup?.name ?? t("common.notAvailable");
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
+
+  const handleSelect = (nextValue: string) => {
+    onChange(nextValue);
+    setIsOpen(false);
+  };
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        className={cn(
+          "flex h-12 w-full items-center justify-between gap-3 rounded-xl border border-border/75 bg-card/70 px-3 text-sm font-bold outline-none transition duration-200 hover:border-foreground/25 focus:border-primary focus:bg-card focus:ring-4 focus:ring-primary/10",
+          isOpen && "border-primary bg-card ring-4 ring-primary/10",
+        )}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((current) => !current)}
+      >
+        <ChevronDown
+          size={16}
+          className={cn(
+            "shrink-0 text-foreground/60 transition",
+            isOpen && "rotate-180 text-primary",
+          )}
+        />
+        <span className="min-w-0 flex-1 truncate text-start" dir="auto">
+          {isLoading ? t("common.loading") : selectedLabel}
+        </span>
+      </button>
+
+      {isOpen ? (
+        <div
+          role="listbox"
+          className="absolute inset-x-0 top-full z-50 mt-2 max-h-80 overflow-y-auto rounded-xl border border-border/75 bg-card/95 p-1.5 shadow-lift backdrop-blur-xl"
+        >
+          <button
+            type="button"
+            role="option"
+            aria-selected={!value}
+            className={cn(
+              "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-start text-sm font-bold transition hover:bg-muted/75",
+              !value && "bg-primary/10 text-primary",
+            )}
+            onClick={() => handleSelect("")}
+          >
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+              {!value ? <Check size={16} /> : null}
+            </span>
+            <span className="min-w-0 flex-1 truncate">{t("common.notAvailable")}</span>
+          </button>
+
+          {groups.map((group) => {
+            const isSelected = group.id === value;
+
+            return (
+              <button
+                key={group.id}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                className={cn(
+                  "flex w-full items-start gap-3 rounded-lg px-3 py-3 text-start transition hover:bg-muted/75",
+                  isSelected && "bg-primary/10 text-primary",
+                )}
+                onClick={() => handleSelect(group.id)}
+              >
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center">
+                  {isSelected ? <Check size={16} /> : null}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold" dir="auto">
+                    {group.name}
+                  </span>
+                  {!group.ready_for_evaluation ? (
+                    <span className="mt-1 inline-flex rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-bold text-amber-700 dark:text-amber-300">
+                      {t("submissions.notReadyLabel")}
+                    </span>
+                  ) : null}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 const getStatusBadgeColor = (status: string) => {
   switch (status) {
@@ -1098,19 +1228,12 @@ export function SubmissionPage() {
             <label className="text-sm font-medium">
               {t("submissions.group")}
             </label>
-            <Select
+            <GroupDropdown
+              groups={groupsQuery.data ?? []}
               value={groupId}
-              onChange={(event) => setGroupId(event.target.value)}
-            >
-              <option value="">{t("common.notAvailable")}</option>
-              {groupsQuery.data?.map((group) => (
-                <option key={group.id} value={group.id}>
-                  {group.ready_for_evaluation
-                    ? group.name
-                    : `${group.name} (${t("submissions.notReadyLabel")})`}
-                </option>
-              ))}
-            </Select>
+              isLoading={groupsQuery.isPending}
+              onChange={setGroupId}
+            />
             {selectedGroup ? (
               <p className="text-xs text-foreground/60">
                 {selectedGroup.ready_for_evaluation
@@ -1212,11 +1335,11 @@ export function SubmissionPage() {
                         className="rounded-2xl border border-destructive/50 bg-destructive/10 p-3"
                       >
                         <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
-                          <div className="space-y-1">
-                            <p className="font-medium">
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <p className="break-words font-medium" dir="auto">
                               {row.original_filename}
                             </p>
-                            <p className="text-xs text-foreground/60">
+                            <p className="break-words text-xs text-foreground/60">
                               {t("common.studentId")}:{" "}
                               {row.student_id || t("common.notAvailable")}
                             </p>
@@ -1233,6 +1356,7 @@ export function SubmissionPage() {
                           <Button
                             variant="ghost"
                             type="button"
+                            className="shrink-0"
                             onClick={() =>
                               handleRemovePreviewFile(row.localKey)
                             }
@@ -1308,15 +1432,15 @@ export function SubmissionPage() {
                       }
                     >
                       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                        <div className="space-y-1">
-                          <p className="font-medium">{row.original_filename}</p>
+                        <div className="min-w-0 flex-1 space-y-1">
+                          <p className="break-words font-medium" dir="auto">{row.original_filename}</p>
                           {row.duplicate_reasons.length ||
                           row.has_existing_match ? null : (
                             <p
                               className={
                                 row.accepted
-                                  ? "text-xs text-foreground/60"
-                                  : "text-xs text-red-700 dark:text-red-300"
+                                  ? "break-words text-xs text-foreground/60"
+                                  : "break-words text-xs text-red-700 dark:text-red-300"
                               }
                             >
                               {row.reason
@@ -1349,7 +1473,7 @@ export function SubmissionPage() {
                             </div>
                           ) : null}
                         </div>
-                        <div className="flex w-full flex-col gap-3 md:w-auto md:flex-row md:items-center">
+                        <div className="flex w-full shrink-0 flex-col gap-3 md:w-auto md:flex-row md:items-center">
                           {row.needs_student_id ? (
                             <div className="w-full md:w-56">
                               <Input
@@ -1782,16 +1906,26 @@ export function SubmissionPage() {
                         <td className="px-4 py-4 text-center">
                           <div className="flex items-center justify-center gap-2">
                             {row.latest_evaluation ? (
-                              <Link
-                                to={`/evaluations/${row.latest_evaluation.id}#manual-adjustments`}
-                              >
-                                <Button
-                                  variant="secondary"
-                                  className="h-8 px-3 text-xs whitespace-nowrap shadow-sm hover:shadow-md"
+                              <>
+                                <Link to={`/evaluations/${row.latest_evaluation.id}`}>
+                                  <Button
+                                    variant="ghost"
+                                    className="h-8 px-3 text-xs whitespace-nowrap"
+                                  >
+                                    {t("evaluations.viewEvaluation")}
+                                  </Button>
+                                </Link>
+                                <Link
+                                  to={`/evaluations/${row.latest_evaluation.id}#manual-adjustments`}
                                 >
-                                  {t("submissions.manualAdjust", "Manual adjust")}
-                                </Button>
-                              </Link>
+                                  <Button
+                                    variant="secondary"
+                                    className="h-8 px-3 text-xs whitespace-nowrap shadow-sm hover:shadow-md"
+                                  >
+                                    {t("evaluations.editScore")}
+                                  </Button>
+                                </Link>
+                              </>
                             ) : (
                               <span className="text-xs text-foreground/50">
                                 {t("common.notAvailable")}

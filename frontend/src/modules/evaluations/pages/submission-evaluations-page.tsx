@@ -11,6 +11,7 @@ import { Card } from "@/components/shared/card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PaginationControls } from "@/components/shared/pagination-controls";
 import { getUserFacingErrorMessage } from "@/lib/error-messages";
+import { EvaluationQuickSummary } from "@/modules/evaluations/components/evaluation-quick-summary";
 import { fetchSubmissionEvaluations, reEvaluateSubmission } from "@/services/evaluations";
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -21,6 +22,7 @@ export function SubmissionEvaluationsPage() {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const evaluationsQuery = useQuery({
     queryKey: ["submission-evaluations", submissionId],
     queryFn: () => fetchSubmissionEvaluations(submissionId),
@@ -28,6 +30,7 @@ export function SubmissionEvaluationsPage() {
   });
   useEffect(() => {
     setPage(1);
+    setExpandedId(null);
   }, [submissionId]);
 
   const evaluations = evaluationsQuery.data ?? [];
@@ -36,6 +39,7 @@ export function SubmissionEvaluationsPage() {
     const totalPages = Math.max(1, Math.ceil(evaluations.length / pageSize));
     if (page > totalPages) {
       setPage(totalPages);
+      setExpandedId(null);
     }
   }, [evaluations.length, page, pageSize]);
 
@@ -67,20 +71,41 @@ export function SubmissionEvaluationsPage() {
           {visibleEvaluations.map((evaluation) => (
             <Card key={evaluation.id} className="p-5">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-2">
+                <div className="min-w-0 flex-1 space-y-2">
                   <div className="flex flex-wrap gap-2">
                     <Badge>#{evaluation.evaluation_number}</Badge>
                     {evaluation.is_latest ? <Badge>{t("evaluations.latest")}</Badge> : null}
                   </div>
-                  <p className="text-sm text-foreground/70">{evaluation.ai_feedback}</p>
-                  <p className="text-sm">
+                  <p className="break-words text-sm text-foreground/70" dir="auto">
+                    {evaluation.submission_filename}
+                  </p>
+                  <p className="break-words text-sm">
                     {t("evaluations.finalAdjusted")}: {evaluation.final_adjusted_score ?? "-"}
                   </p>
                 </div>
-                <Link to={`/evaluations/${evaluation.id}`}>
-                  <Button variant="secondary">{t("groups.details")}</Button>
-                </Link>
+                <div className="flex shrink-0 flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setExpandedId((current) => (current === evaluation.id ? null : evaluation.id))}
+                  >
+                    {expandedId === evaluation.id
+                      ? t("evaluations.hideQuickSummary")
+                      : t("evaluations.quickSummary")}
+                  </Button>
+                  <Link to={`/evaluations/${evaluation.id}`}>
+                    <Button variant="ghost" type="button">{t("evaluations.viewEvaluation")}</Button>
+                  </Link>
+                  <Link to={`/evaluations/${evaluation.id}#manual-adjustments`}>
+                    <Button type="button">{t("evaluations.editScore")}</Button>
+                  </Link>
+                </div>
               </div>
+              {expandedId === evaluation.id ? (
+                <div className="mt-4">
+                  <EvaluationQuickSummary evaluationId={evaluation.id} />
+                </div>
+              ) : null}
             </Card>
           ))}
           <PaginationControls
@@ -88,10 +113,14 @@ export function SubmissionEvaluationsPage() {
             pageSize={pageSize}
             total={evaluations.length}
             isFetching={evaluationsQuery.isFetching}
-            onPageChange={setPage}
+            onPageChange={(nextPage) => {
+              setPage(nextPage);
+              setExpandedId(null);
+            }}
             onPageSizeChange={(nextPageSize) => {
               setPageSize(nextPageSize);
               setPage(1);
+              setExpandedId(null);
             }}
           />
         </div>

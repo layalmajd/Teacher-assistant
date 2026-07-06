@@ -3,12 +3,13 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { z } from "zod";
 import {
+  Check,
+  ChevronDown,
   User,
   Mail,
-  Shield,
   Pencil,
   Camera,
   Globe,
@@ -27,9 +28,10 @@ import { Button } from "@/components/shared/button";
 import { Card } from "@/components/shared/card";
 import { Input } from "@/components/shared/input";
 import { getUserFacingErrorMessage } from "@/lib/error-messages";
-import { Select } from "@/components/shared/select";
+import { cn } from "@/lib/cn";
 import { changePassword } from "@/services/auth";
 import { fetchPreferences, updatePreferences } from "@/services/preferences";
+import type { LanguageCode } from "@/types/api";
 
 const passwordSchema = z
   .object({
@@ -43,6 +45,106 @@ const passwordSchema = z
   });
 
 type PasswordFormValues = z.infer<typeof passwordSchema>;
+
+function LanguageDropdown({
+  value,
+  onChange,
+}: {
+  value: LanguageCode;
+  onChange: (value: LanguageCode) => void;
+}) {
+  const { t } = useTranslation();
+  const [isOpen, setIsOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const options: Array<{ value: LanguageCode; label: string }> = [
+    { value: "ar", label: t("common.arabic") },
+    { value: "en", label: t("common.english") },
+  ];
+  const selectedLabel =
+    options.find((option) => option.value === value)?.label ?? t("common.arabic");
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
+
+  const handleSelect = (nextValue: LanguageCode) => {
+    onChange(nextValue);
+    setIsOpen(false);
+  };
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        className={cn(
+          "flex h-12 w-full items-center justify-between gap-3 rounded-xl border border-border/75 bg-card/70 px-3 text-sm font-bold outline-none transition duration-200 hover:border-foreground/25 focus:border-primary focus:bg-card focus:ring-4 focus:ring-primary/10",
+          isOpen && "border-primary bg-card ring-4 ring-primary/10",
+        )}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((current) => !current)}
+      >
+        <ChevronDown
+          size={16}
+          className={cn("shrink-0 text-foreground/60 transition", isOpen && "rotate-180 text-primary")}
+        />
+        <span className="min-w-0 flex-1 truncate text-start">{selectedLabel}</span>
+      </button>
+
+      {isOpen ? (
+        <div
+          role="listbox"
+          className="absolute inset-x-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-border/75 bg-card/95 p-1.5 shadow-lift backdrop-blur-xl"
+        >
+          {options.map((option) => {
+            const isSelected = option.value === value;
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-start text-sm font-bold transition hover:bg-muted/75",
+                  isSelected && "bg-primary/10 text-primary",
+                )}
+                onClick={() => handleSelect(option.value)}
+              >
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+                  {isSelected ? <Check size={16} /> : null}
+                </span>
+                <span className="min-w-0 flex-1 truncate">{option.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 export function SettingsPage() {
   const { t } = useTranslation();
@@ -153,15 +255,6 @@ export function SettingsPage() {
               </div>
               <span className="font-medium">{instructor?.email}</span>
             </div>
-            <div className="flex items-center justify-between text-sm">
-              <div className="flex items-center gap-2 text-foreground/70">
-                <Shield className="h-4 w-4" />
-                <span>{t("settings.role")}</span>
-              </div>
-              <span className="font-medium text-primary">
-                {t("settings.admin")}
-              </span>
-            </div>
           </div>
 
           <div className="mt-4 w-full relative overflow-hidden rounded-xl bg-gradient-to-br from-primary/10 via-primary/5 to-transparent border border-primary/20 p-5 text-start transition-all hover:border-primary/30">
@@ -176,7 +269,7 @@ export function SettingsPage() {
                 <p className="text-xs text-foreground/70 leading-relaxed font-medium">
                   {t(
                     "settings.accountVerifiedDesc",
-                    "This account has full instructor permissions and is protected with modern security and encryption standards to keep your data safe.",
+                    "This teacher account is protected with modern security and encryption standards to keep your data safe.",
                   )}
                 </p>
               </div>
@@ -203,16 +296,7 @@ export function SettingsPage() {
                   <Globe className="h-4 w-4 text-primary" />
                   <span>{t("common.language")}</span>
                 </label>
-                <Select
-                  value={language}
-                  onChange={(event) =>
-                    setLanguage(event.target.value as "en" | "ar")
-                  }
-                  className="rounded-xl h-12"
-                >
-                  <option value="en">{t("common.english")}</option>
-                  <option value="ar">{t("common.arabic")}</option>
-                </Select>
+                <LanguageDropdown value={language} onChange={setLanguage} />
               </div>
 
               <div className="space-y-4">
@@ -320,7 +404,11 @@ export function SettingsPage() {
                   </p>
                 ) : null}
               </div>
-              <Button type="submit" disabled={passwordMutation.isPending}>
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={passwordMutation.isPending}
+              >
                 {passwordMutation.isPending
                   ? t("common.loading")
                   : t("common.save")}

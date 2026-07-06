@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -117,6 +117,7 @@ function FeedbackDisplayBox({ text }: { text: string | null | undefined }) {
 
 export function EvaluationDetailPage() {
   const { t } = useTranslation();
+  const location = useLocation();
   const { evaluationId = "" } = useParams();
   const queryClient = useQueryClient();
   const evaluationQuery = useQuery({
@@ -140,6 +141,21 @@ export function EvaluationDetailPage() {
       });
     }
   }, [evaluationQuery.data, form]);
+
+  useEffect(() => {
+    if (location.hash !== "#manual-adjustments" || !evaluationQuery.data) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      document.getElementById("manual-adjustments")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [evaluationQuery.data, location.hash]);
 
   const mutation = useMutation({
     mutationFn: (values: { items: Array<{ criterion_score_id: string; manual_score: number | null; feedback: string | null }> }) =>
@@ -183,7 +199,7 @@ export function EvaluationDetailPage() {
               {evaluation?.provider_name ? <Badge>{evaluation.provider_name}</Badge> : null}
               {evaluation?.model_name ? <Badge>{evaluation.model_name}</Badge> : null}
             </div>
-            <p className="text-sm font-semibold text-foreground/55">
+            <p className="min-w-0 break-words text-sm font-semibold text-foreground/55" dir="auto">
               {evaluation?.submission_filename ?? "-"}
             </p>
           </div>
@@ -257,9 +273,9 @@ export function EvaluationDetailPage() {
                 className="rounded-2xl border border-border/55 bg-muted/55 p-4 sm:p-5"
               >
                 <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-lg font-extrabold">{score.criterion_name}</h3>
-                    <p className="mt-1 text-sm text-foreground/55">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="break-words text-lg font-extrabold" dir="auto">{score.criterion_name}</h3>
+                    <p className="mt-1 break-words text-sm text-foreground/55">
                       {t("evaluations.weightContribution", { weight: score.weight })}
                     </p>
                   </div>
