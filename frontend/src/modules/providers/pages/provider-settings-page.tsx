@@ -121,9 +121,6 @@ const providerDefaults: Record<
   },
 };
 
-const providerActionButtonClass =
-  "h-10 min-w-0 whitespace-nowrap rounded-xl border border-primary/35 bg-primary/10 px-2 text-[11px] font-bold leading-4 text-primary shadow-sm hover:border-primary/60 hover:bg-primary/15 hover:text-primary sm:px-3 sm:text-xs";
-
 function ProviderDropdown({
   value,
   disabled,
@@ -547,7 +544,7 @@ export function ProviderSettingsPage() {
                       type="button"
                       onClick={() => makeDefaultMutation.mutate(provider.id)}
                       disabled={makeDefaultMutation.isPending}
-                      className={providerActionButtonClass}
+                      className="h-10 min-w-0 whitespace-nowrap rounded-xl border border-border/60 bg-card/70 px-2 text-[11px] leading-4 text-primary shadow-sm hover:border-primary/25 hover:bg-primary/5 hover:text-primary sm:px-3 sm:text-xs"
                     >
                       {t("providers.makeDefault")}
                     </Button>
@@ -556,7 +553,7 @@ export function ProviderSettingsPage() {
                     variant="secondary"
                     type="button"
                     onClick={() => testMutation.mutate(provider.id)}
-                    className={providerActionButtonClass}
+                    className="h-10 min-w-0 whitespace-nowrap rounded-xl border-border/60 bg-card/80 px-2 text-[11px] leading-4 text-primary shadow-sm hover:border-primary/30 hover:bg-primary/5 hover:text-primary sm:px-3 sm:text-xs"
                   >
                     {t("providers.test")}
                   </Button>
@@ -565,7 +562,7 @@ export function ProviderSettingsPage() {
                     type="button"
                     onClick={() => startEdit(provider)}
                     disabled={updateMutation.isPending}
-                    className={providerActionButtonClass}
+                    className="h-10 min-w-0 whitespace-nowrap rounded-xl border border-border/60 bg-card/70 px-2 text-[11px] leading-4 text-primary shadow-sm hover:border-primary/25 hover:bg-muted/60 hover:text-primary sm:px-3 sm:text-xs"
                   >
                     {t("providers.edit")}
                   </Button>
