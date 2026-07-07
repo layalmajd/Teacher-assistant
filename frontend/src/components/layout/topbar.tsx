@@ -21,11 +21,6 @@ export function Topbar() {
     usePreferenceStore();
   const displayName =
     instructor?.username?.trim() || instructor?.email?.split("@")[0] || "";
-  const greeting = displayName
-    ? language === "ar"
-      ? `مرحباً، ${displayName}`
-      : `Welcome, ${displayName}`
-    : "";
   const logoutMutation = useMutation({
     mutationFn: async () => {
       if (refreshToken) {
@@ -40,7 +35,7 @@ export function Topbar() {
   return (
     <header className="sticky top-0 z-40 w-full overflow-hidden border-b border-border/60 bg-background/80 px-3 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
       <div className="flex min-w-0 items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
+        <div className="flex min-w-0 items-center gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-primary border border-primary/20 shadow-sm font-semibold">
             {avatar ? (
               <img
@@ -52,13 +47,13 @@ export function Topbar() {
               displayName.substring(0, 2).toUpperCase()
             )}
           </div>
-          <div className="hidden sm:block min-w-0">
-            <p className="truncate text-sm font-bold text-foreground">
-              {language === "ar" ? "مرحباً يا" : "Welcome,"}{" "}
-              <span className="text-primary">{displayName}</span> 👋
-            </p>
-            <p className="truncate text-xs text-foreground/60">
-              {instructor?.email}
+          <div className="hidden min-w-0 items-center sm:flex">
+            <p className="max-w-[220px] truncate text-sm font-bold leading-5 text-foreground md:max-w-[320px]">
+              {language === "ar" ? "مرحباً،" : "Welcome,"}{" "}
+              <span className="text-primary">{displayName}</span>
+              <span className="ms-1" aria-hidden="true">
+                👋
+              </span>
             </p>
           </div>
         </div>
