@@ -6,7 +6,7 @@ export function Card({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       className={cn(
-        "glass-panel rounded-2xl transition duration-200 hover:border-primary/20",
+        "glass-panel min-w-0 rounded-2xl transition duration-200 hover:border-primary/20",
         className,
       )}
       {...props}

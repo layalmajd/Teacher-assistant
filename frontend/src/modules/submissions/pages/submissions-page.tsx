@@ -1,5 +1,6 @@
 ﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties } from "react";
 import { Check, ChevronDown, Trash2, UploadCloud } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -249,6 +250,10 @@ export function SubmissionPage() {
   const [fileInputKey, setFileInputKey] = useState(0);
   const [submissionPendingDelete, setSubmissionPendingDelete] =
     useState<Submission | null>(null);
+  const [submissionsListHeight, setSubmissionsListHeight] = useState<
+    number | null
+  >(null);
+  const uploadCardRef = useRef<HTMLDivElement | null>(null);
   const wasBatchActiveRef = useRef(false);
 
   const groupsQuery = useQuery({ queryKey: ["groups"], queryFn: fetchGroups });
@@ -433,6 +438,33 @@ export function SubmissionPage() {
   useEffect(() => {
     setReportPage(1);
   }, [groupId, reportSearch]);
+
+  useEffect(() => {
+    const element = uploadCardRef.current;
+    if (!element) {
+      return;
+    }
+
+    const updateSubmissionsListHeight = () => {
+      setSubmissionsListHeight(Math.ceil(element.getBoundingClientRect().height));
+    };
+
+    updateSubmissionsListHeight();
+    window.addEventListener("resize", updateSubmissionsListHeight);
+
+    if (typeof ResizeObserver === "undefined") {
+      return () =>
+        window.removeEventListener("resize", updateSubmissionsListHeight);
+    }
+
+    const resizeObserver = new ResizeObserver(updateSubmissionsListHeight);
+    resizeObserver.observe(element);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateSubmissionsListHeight);
+    };
+  }, []);
 
   useEffect(() => {
     const totalPages = Math.max(
@@ -1087,7 +1119,10 @@ export function SubmissionPage() {
     }
   }, [groupId]);
 
-  const renderCriterionResultForRow = (row: SubmissionReportRow) => {
+  const renderCriterionResultForRow = (
+    row: SubmissionReportRow,
+    compact = false,
+  ) => {
     if (
       !row.latest_evaluation?.criterion_scores.length ||
       !activeCriterionTab
@@ -1112,15 +1147,30 @@ export function SubmissionPage() {
     const percentage =
       row.grade_scale > 0 ? (rawScore / row.grade_scale) * 100 : 0;
     const points = (score.weight * percentage) / 100;
+    const formattedScore = t("submissions.criterionScoreFormat", {
+      score: points.toFixed(2),
+      weight: score.weight,
+      percent: percentage.toFixed(1),
+    });
+
+    if (compact) {
+      return (
+        <div className="min-w-0 space-y-1 rounded-xl border border-border/60 bg-background/80 px-3 py-2">
+          <p className="break-words text-sm font-bold leading-6 text-foreground" dir="auto">
+            {score.criterion_name}
+          </p>
+          <p className="break-words text-xs leading-5 text-foreground/70">
+            {formattedScore}
+          </p>
+        </div>
+      );
+    }
+
     return (
       <div className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-3 py-1.5 whitespace-nowrap">
         <span className="font-medium">{score.criterion_name}</span>
         <span className="text-xs text-foreground/70">
-          {t("submissions.criterionScoreFormat", {
-            score: points.toFixed(2),
-            weight: score.weight,
-            percent: percentage.toFixed(1),
-          })}
+          {formattedScore}
         </span>
       </div>
     );
@@ -1216,14 +1266,21 @@ export function SubmissionPage() {
     }
   };
 
+  const submissionsListStyle = submissionsListHeight
+    ? ({
+        "--submissions-list-height": `${submissionsListHeight}px`,
+      } as CSSProperties)
+    : undefined;
+
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 max-w-full space-y-6 overflow-x-hidden">
       <PageHeader
         title={t("submissions.title")}
         subtitle={t("submissions.subtitle")}
       />
-      <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-        <Card className="space-y-4 p-5">
+      <div className="grid min-w-0 max-w-full gap-6 xl:grid-cols-2 xl:items-start 2xl:gap-8">
+        <div ref={uploadCardRef} className="min-w-0 max-w-full xl:sticky xl:top-28">
+        <Card className="max-w-full space-y-4 overflow-hidden p-4 sm:p-5">
           <div className="space-y-2">
             <label className="text-sm font-medium">
               {t("submissions.group")}
@@ -1251,7 +1308,7 @@ export function SubmissionPage() {
               {t("submissions.files")}
             </label>
             <div
-              className="relative flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-muted-foreground/25 bg-muted/20 px-6 py-10 transition-colors hover:bg-muted/40 cursor-pointer"
+              className="relative flex max-w-full cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-muted-foreground/25 bg-muted/20 px-4 py-10 transition-colors hover:bg-muted/40 sm:px-6"
               onDragOver={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -1276,14 +1333,14 @@ export function SubmissionPage() {
                 multiple
                 onChange={(event) => handleFilesSelected(event.target.files)}
               />
-              <div className="flex flex-col items-center justify-center text-center">
+              <div className="flex min-w-0 flex-col items-center justify-center text-center">
                 <div className="mb-4 rounded-full bg-primary/10 p-4 shrink-0 transition-transform duration-300 hover:scale-110">
                   <UploadCloud className="h-6 w-6 text-primary" />
                 </div>
-                <p className="mb-1 font-medium">
+                <p className="mb-1 max-w-full break-words font-medium">
                   {t("submissions.dragAndDrop", "Drag and drop files here")}
                 </p>
-                <p className="text-sm text-foreground/60">
+                <p className="max-w-full break-words text-sm text-foreground/60">
                   {t("submissions.browseFiles", "or click to browse your files")}
                 </p>
               </div>
@@ -1575,15 +1632,20 @@ export function SubmissionPage() {
               : t("submissions.upload")}
           </Button>
         </Card>
+        </div>
 
-        <Card className="p-5">
-          <div className="mb-4 flex items-center justify-between">
+        <Card
+          className="flex max-w-full flex-col overflow-hidden p-4 sm:p-5 xl:max-h-[var(--submissions-list-height)]"
+          style={submissionsListStyle}
+        >
+          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="text-lg font-semibold">{t("submissions.title")}</h3>
             <div className="flex flex-wrap items-center gap-2">
               <Badge>{groupId ? submissionsTotal : 0}</Badge>
               <Button
                 variant="secondary"
                 type="button"
+                className="h-10 px-3 text-xs sm:text-sm"
                 onClick={handleReEvaluateCompletedClick}
                 disabled={
                   isBatchActive ||
@@ -1599,6 +1661,7 @@ export function SubmissionPage() {
               <Button
                 variant={isBatchActive ? "secondary" : "primary"}
                 type="button"
+                className="h-10 px-3 text-xs sm:text-sm"
                 onClick={handleEvaluateAllClick}
                 disabled={
                   isBatchActive
@@ -1614,6 +1677,7 @@ export function SubmissionPage() {
               </Button>
             </div>
           </div>
+          <div className="min-h-0 flex-1 space-y-4 xl:overflow-y-auto xl:pe-2">
           {batchStatus?.active ? (
             <div className="mb-4 rounded-2xl border border-blue-300 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-950/30">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -1778,10 +1842,11 @@ export function SubmissionPage() {
               description={t("submissions.empty")}
             />
           )}
+          </div>
         </Card>
       </div>
       {groupId ? (
-        <Card className="p-5">
+        <Card className="overflow-hidden p-4 sm:p-5">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="space-y-1">
               <h3 className="text-lg font-semibold">
@@ -1804,7 +1869,10 @@ export function SubmissionPage() {
             </div>
           </div>
           {reportCriterionNames.length ? (
-            <div className="mb-4 flex flex-wrap gap-2">
+            <div
+              dir="ltr"
+              className="mb-4 flex max-w-full flex-nowrap justify-start gap-2 overflow-x-auto overscroll-x-contain pb-2"
+            >
               {reportCriterionNames.map((criterionName) => (
                 <button
                   key={criterionName}
@@ -1812,18 +1880,149 @@ export function SubmissionPage() {
                   onClick={() => setActiveCriterionTab(criterionName)}
                   className={
                     activeCriterionTab === criterionName
-                      ? "rounded-full bg-primary px-4 py-2 text-sm font-semibold text-white"
-                      : "rounded-full border border-border/60 bg-background px-4 py-2 text-sm font-semibold text-foreground/70"
+                      ? "max-w-[18rem] shrink-0 truncate rounded-full bg-primary px-3 py-2 text-xs font-semibold text-white sm:px-4 sm:text-sm"
+                      : "max-w-[18rem] shrink-0 truncate rounded-full border border-border/60 bg-background px-3 py-2 text-xs font-semibold text-foreground/70 sm:px-4 sm:text-sm"
                   }
+                  title={criterionName}
                 >
-                  {criterionName}
+                  <span dir="auto">{criterionName}</span>
                 </button>
               ))}
             </div>
           ) : null}
           {reportRows.length ? (
             <>
-              <div className="overflow-x-auto rounded-xl border border-border/50 shadow-sm">
+              <div className="space-y-3 md:hidden">
+                {reportRows.map((row) => (
+                  <div
+                    key={row.submission.id}
+                    className="rounded-2xl border border-border/60 bg-muted/35 p-4"
+                  >
+                    <div className="space-y-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 space-y-2">
+                          <p
+                            className="break-words text-left text-sm font-extrabold leading-6 text-foreground"
+                            dir="ltr"
+                          >
+                            {row.submission.original_filename}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="rounded-full bg-background px-3 py-1 text-xs font-semibold text-foreground/65">
+                              {row.submission.student_id ||
+                                t("common.notAvailable")}
+                            </span>
+                            <Badge
+                              className={getStatusBadgeColor(
+                                row.submission.status,
+                              )}
+                            >
+                              {t(`state.${row.submission.status}`)}
+                            </Badge>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          type="button"
+                          className="h-8 w-8 shrink-0 px-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                          onClick={() =>
+                            setSubmissionPendingDelete(row.submission)
+                          }
+                          disabled={
+                            !canDeleteSubmission(row.submission) ||
+                            (deleteSubmissionMutation.isPending &&
+                              deleteSubmissionMutation.variables ===
+                                row.submission.id)
+                          }
+                          title={t("submissions.deleteSubmission")}
+                          aria-label={t("submissions.deleteSubmission")}
+                        >
+                          <Trash2 size={15} />
+                        </Button>
+                      </div>
+
+                      {row.submission.status === "failed" ? (
+                        <p className="rounded-xl bg-destructive/10 px-3 py-2 text-xs leading-6 text-destructive">
+                          {getUserFacingReason(
+                            row.submission.error_message,
+                            "errors.evaluation.failed",
+                          )}
+                        </p>
+                      ) : null}
+
+                      <div className="grid min-w-0 grid-cols-2 gap-2">
+                        <div className="min-w-0 overflow-hidden rounded-xl border border-border/55 bg-background/80 px-3 py-2">
+                          <p className="break-words text-[11px] font-semibold leading-4 text-foreground/50">
+                            {t("submissions.totalAiScoreColumn")}
+                          </p>
+                          <p className="mt-1 text-sm font-extrabold">
+                            {row.latest_evaluation?.total_ai_score != null
+                              ? row.latest_evaluation.total_ai_score.toFixed(2)
+                              : "-"}
+                          </p>
+                        </div>
+                        <div className="min-w-0 overflow-hidden rounded-xl border border-primary/20 bg-primary/10 px-3 py-2">
+                          <p className="break-words text-[11px] font-semibold leading-4 text-primary/80">
+                            {t("submissions.finalAdjustedScoreColumn")}
+                          </p>
+                          <p className="mt-1 text-sm font-extrabold text-primary">
+                            {row.latest_evaluation?.final_adjusted_score != null
+                              ? row.latest_evaluation.final_adjusted_score.toFixed(
+                                  2,
+                                )
+                              : "-"}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-border/50 bg-background/70 px-3 py-2">
+                        <p className="mb-2 text-[11px] font-semibold text-foreground/50">
+                          {activeCriterionTab ||
+                            t("submissions.criteriaResultsColumn")}
+                        </p>
+                        <div className="min-w-0 text-sm">
+                          {renderCriterionResultForRow(row, true)}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-2 sm:flex-row">
+                        {row.latest_evaluation ? (
+                          <>
+                            <Link
+                              className="w-full"
+                              to={`/evaluations/${row.latest_evaluation.id}`}
+                            >
+                              <Button
+                                variant="ghost"
+                                className="h-10 w-full text-xs"
+                              >
+                                {t("evaluations.viewEvaluation")}
+                              </Button>
+                            </Link>
+                            <Link
+                              className="w-full"
+                              to={`/evaluations/${row.latest_evaluation.id}#manual-adjustments`}
+                            >
+                              <Button
+                                variant="secondary"
+                                className="h-10 w-full text-xs shadow-sm hover:shadow-md"
+                              >
+                                {t("evaluations.editScore")}
+                              </Button>
+                            </Link>
+                          </>
+                        ) : (
+                          <span className="text-xs text-foreground/50">
+                            {t("common.notAvailable")}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="hidden overflow-x-auto rounded-xl border border-border/50 shadow-sm md:block">
                 <table className="w-full text-sm">
                   <thead className="bg-primary/10">
                     <tr className="border-b border-primary/20 text-primary text-right">

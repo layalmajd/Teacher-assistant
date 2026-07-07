@@ -9,7 +9,7 @@ export function Sidebar() {
   const { t } = useTranslation();
 
   return (
-    <aside className="sticky top-0 hidden h-screen w-72 shrink-0 border-e border-border/65 bg-card/80 px-4 py-5 shadow-panel backdrop-blur-xl lg:flex lg:flex-col">
+    <aside className="fixed inset-y-0 start-0 z-30 hidden h-dvh w-72 shrink-0 overflow-y-auto border-e border-border/65 bg-card/80 px-4 py-5 shadow-panel backdrop-blur-xl lg:flex lg:flex-col">
       <div className="mb-7 rounded-2xl border border-border/65 bg-muted/45 p-5">
         <div className="flex items-center gap-3.5">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-white shadow-glow dark:text-slate-950">

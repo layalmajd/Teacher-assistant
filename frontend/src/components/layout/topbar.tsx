@@ -38,8 +38,8 @@ export function Topbar() {
   });
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
-      <div className="flex items-center justify-between gap-4">
+    <header className="sticky top-0 z-40 w-full overflow-hidden border-b border-border/60 bg-background/80 px-3 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
+      <div className="flex min-w-0 items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-primary border border-primary/20 shadow-sm font-semibold">
             {avatar ? (
@@ -62,7 +62,7 @@ export function Topbar() {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <Button
             variant="ghost"
             onClick={() => setLanguage(language === "en" ? "ar" : "en")}
@@ -102,7 +102,7 @@ export function Topbar() {
           </Button>
         </div>
       </div>
-      <nav className="mt-3 flex gap-2 overflow-x-auto pb-1 lg:hidden">
+      <nav className="mt-3 flex min-w-0 gap-2 overflow-x-auto overflow-y-hidden pb-1 lg:hidden">
         {navLinks.map(({ to, icon: Icon, key }) => (
           <NavLink
             key={to}

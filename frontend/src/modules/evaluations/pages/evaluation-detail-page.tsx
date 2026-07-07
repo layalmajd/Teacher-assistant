@@ -131,6 +131,14 @@ export function EvaluationDetailPage() {
   });
 
   useEffect(() => {
+    if (location.hash) {
+      return;
+    }
+
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }, [evaluationId, location.hash]);
+
+  useEffect(() => {
     if (evaluationQuery.data) {
       form.reset({
         items: evaluationQuery.data.criterion_scores.map((score) => ({

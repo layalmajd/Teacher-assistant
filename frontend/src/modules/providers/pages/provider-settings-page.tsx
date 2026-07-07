@@ -1,5 +1,6 @@
 ﻿import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslation } from "react-i18next";
@@ -11,8 +12,8 @@ import { Badge } from "@/components/shared/badge";
 import { Button } from "@/components/shared/button";
 import { Card } from "@/components/shared/card";
 import { Input } from "@/components/shared/input";
+import { cn } from "@/lib/cn";
 import { getUserFacingErrorMessage } from "@/lib/error-messages";
-import { Select } from "@/components/shared/select";
 import {
   createProvider,
   deleteProvider,
@@ -57,6 +58,15 @@ const schema = z.object({
 });
 
 type FormValues = z.infer<typeof schema>;
+const createDefaultProviderName: FormValues["provider_name"] = "groq";
+
+const providerOptions: Array<{ value: FormValues["provider_name"]; label: string }> = [
+  { value: "openai", label: "OpenAI" },
+  { value: "gemini", label: "Gemini" },
+  { value: "deepseek", label: "DeepSeek" },
+  { value: "groq", label: "Groq" },
+  { value: "ollama", label: "Ollama" },
+];
 
 const providerDefaults: Record<
   FormValues["provider_name"],
@@ -111,6 +121,96 @@ const providerDefaults: Record<
   },
 };
 
+function ProviderDropdown({
+  value,
+  disabled,
+  onChange,
+}: {
+  value: FormValues["provider_name"];
+  disabled?: boolean;
+  onChange: (value: FormValues["provider_name"]) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const selectedOption = providerOptions.find((option) => option.value === value) ?? providerOptions[0];
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const close = () => setIsOpen(false);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        close();
+      }
+    };
+
+    window.addEventListener("click", close);
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isOpen]);
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        disabled={disabled}
+        className={cn(
+          "flex h-11 w-full items-center justify-between gap-3 rounded-xl border border-border/75 bg-card/70 px-3 text-sm font-bold outline-none transition duration-200 hover:border-foreground/25 focus:border-primary focus:bg-card focus:ring-4 focus:ring-primary/10 disabled:cursor-not-allowed disabled:opacity-60",
+          isOpen && "border-primary bg-card ring-4 ring-primary/10",
+        )}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        onClick={(event) => {
+          event.stopPropagation();
+          setIsOpen((current) => !current);
+        }}
+      >
+        <ChevronDown size={16} className={cn("shrink-0 transition", isOpen && "rotate-180")} />
+        <span className="min-w-0 flex-1 text-start">{selectedOption.label}</span>
+      </button>
+
+      {isOpen ? (
+        <div
+          role="listbox"
+          className="absolute inset-x-0 top-full z-30 mt-2 overflow-hidden rounded-xl border border-border/75 bg-card/95 p-1.5 shadow-lift backdrop-blur-xl"
+          onClick={(event) => event.stopPropagation()}
+        >
+          {providerOptions.map((option) => {
+            const isSelected = option.value === value;
+
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-start text-sm font-bold transition hover:bg-muted/75",
+                  isSelected && "bg-primary/10 text-primary",
+                )}
+                onClick={() => {
+                  onChange(option.value);
+                  setIsOpen(false);
+                }}
+              >
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center">
+                  {isSelected ? <Check size={16} /> : null}
+                </span>
+                <span className="min-w-0 flex-1">{option.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function ProviderSettingsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -121,8 +221,8 @@ export function ProviderSettingsPage() {
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      provider_name: "openai",
-      model_name: "gpt-4o-mini",
+      provider_name: createDefaultProviderName,
+      model_name: providerDefaults[createDefaultProviderName].model,
       is_active: true,
       is_default: true,
       max_tokens_per_request: undefined,
@@ -132,9 +232,9 @@ export function ProviderSettingsPage() {
 
   const resetFormToCreateDefaults = () => {
     form.reset({
-      provider_name: "openai",
+      provider_name: createDefaultProviderName,
       api_key: "",
-      model_name: "gpt-4o-mini",
+      model_name: providerDefaults[createDefaultProviderName].model,
       is_active: true,
       is_default: true,
       daily_request_limit: undefined,
@@ -296,13 +396,16 @@ export function ProviderSettingsPage() {
           >
             <div className="space-y-2">
               <label className="text-sm font-medium">{t("providers.provider")}</label>
-              <Select {...form.register("provider_name")} disabled={isEditing}>
-                <option value="openai">OpenAI</option>
-                <option value="gemini">Gemini</option>
-                <option value="deepseek">DeepSeek</option>
-                <option value="groq">Groq</option>
-                <option value="ollama">Ollama</option>
-              </Select>
+              <ProviderDropdown
+                value={providerName}
+                disabled={isEditing}
+                onChange={(value) => {
+                  form.setValue("provider_name", value, {
+                    shouldDirty: true,
+                    shouldValidate: true,
+                  });
+                }}
+              />
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">{t("providers.model")}</label>
@@ -324,6 +427,11 @@ export function ProviderSettingsPage() {
                     {t("providers.apiKeyHelpLink")}
                   </a>
                 </p>
+                {providerName === "groq" ? (
+                  <p className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-xs leading-6 text-foreground/70">
+                    {t("providers.groqQuotaNote")}
+                  </p>
+                ) : null}
                 {form.formState.errors.api_key?.message ? (
                   <p className="text-xs text-destructive">
                     {t(form.formState.errors.api_key.message)}
@@ -369,8 +477,12 @@ export function ProviderSettingsPage() {
                 {t("providers.default")}
               </label>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
+            <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={createMutation.isPending || updateMutation.isPending}
+              >
                 {createMutation.isPending || updateMutation.isPending
                   ? t("common.loading")
                   : isEditing
@@ -378,7 +490,12 @@ export function ProviderSettingsPage() {
                     : t("common.create")}
               </Button>
               {isEditing ? (
-                <Button type="button" variant="ghost" onClick={cancelEdit}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="w-full sm:w-auto"
+                  onClick={cancelEdit}
+                >
                   {t("common.cancel")}
                 </Button>
               ) : null}
@@ -409,27 +526,35 @@ export function ProviderSettingsPage() {
 
           {providersQuery.data?.map((provider) => (
             <Card key={provider.id} className="p-5">
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="space-y-2">
+              <div className="space-y-4">
+                <div className="flex min-w-0 items-start justify-between gap-3">
+                <div className="min-w-0 space-y-2">
                   <h3 className="font-semibold capitalize">{provider.provider_name}</h3>
-                  <p className="text-sm text-foreground/70">{provider.model_name}</p>
+                  <p className="break-words text-sm text-foreground/70">{provider.model_name}</p>
                   <div className="flex flex-wrap gap-2">
                     {provider.is_default ? <Badge>{t("providers.default")}</Badge> : null}
                     {provider.is_active ? <Badge>{t("groups.active")}</Badge> : null}
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                </div>
+                <div className="grid w-full min-w-0 max-w-full grid-cols-2 gap-2 rounded-2xl border border-border/55 bg-muted/25 p-2 min-[560px]:grid-cols-4">
                   {!provider.is_default ? (
                     <Button
                       variant="ghost"
                       type="button"
                       onClick={() => makeDefaultMutation.mutate(provider.id)}
                       disabled={makeDefaultMutation.isPending}
+                      className="h-10 min-w-0 whitespace-nowrap rounded-xl border border-border/60 bg-card/70 px-2 text-[11px] leading-4 shadow-sm hover:border-primary/25 hover:bg-primary/5 sm:px-3 sm:text-xs"
                     >
                       {t("providers.makeDefault")}
                     </Button>
                   ) : null}
-                  <Button variant="secondary" type="button" onClick={() => testMutation.mutate(provider.id)}>
+                  <Button
+                    variant="secondary"
+                    type="button"
+                    onClick={() => testMutation.mutate(provider.id)}
+                    className="h-10 min-w-0 whitespace-nowrap rounded-xl border-border/60 bg-card/80 px-2 text-[11px] leading-4 shadow-sm hover:border-primary/30 hover:bg-primary/5 sm:px-3 sm:text-xs"
+                  >
                     {t("providers.test")}
                   </Button>
                   <Button
@@ -437,14 +562,16 @@ export function ProviderSettingsPage() {
                     type="button"
                     onClick={() => startEdit(provider)}
                     disabled={updateMutation.isPending}
+                    className="h-10 min-w-0 whitespace-nowrap rounded-xl border border-border/60 bg-card/70 px-2 text-[11px] leading-4 shadow-sm hover:border-primary/25 hover:bg-muted/60 sm:px-3 sm:text-xs"
                   >
                     {t("providers.edit")}
                   </Button>
                   <Button
-                    variant="danger"
+                    variant="ghost"
                     type="button"
                     onClick={() => handleDelete(provider)}
                     disabled={deleteMutation.isPending}
+                    className="h-10 min-w-0 whitespace-nowrap rounded-xl border border-destructive/25 bg-destructive/5 px-2 text-[11px] leading-4 text-destructive shadow-sm hover:border-destructive/35 hover:bg-destructive/10 hover:text-destructive sm:px-3 sm:text-xs"
                   >
                     {t("common.delete")}
                   </Button>

@@ -58,11 +58,11 @@ function PageSizeDropdown({
   };
 
   return (
-    <div ref={rootRef} className="relative h-full">
+    <div ref={rootRef} className="relative z-20 h-full shrink-0">
       <button
         type="button"
         className={cn(
-          "flex h-full min-w-24 items-center justify-between gap-2 rounded-e-full bg-background px-3 text-sm font-extrabold text-foreground outline-none transition hover:bg-muted/50 focus:bg-background focus:ring-2 focus:ring-primary/15",
+          "flex h-full min-w-12 items-center justify-between gap-1.5 rounded-e-full bg-background px-2 text-[11px] font-extrabold text-foreground outline-none transition hover:bg-muted/50 focus:bg-background focus:ring-2 focus:ring-primary/15 sm:min-w-16 sm:text-xs",
           isOpen && "bg-background ring-2 ring-primary/15",
         )}
         aria-haspopup="listbox"
@@ -71,7 +71,7 @@ function PageSizeDropdown({
       >
         <span>{value}</span>
         <ChevronDown
-          size={16}
+          size={14}
           className={cn("text-foreground/55 transition", isOpen && "rotate-180 text-primary")}
         />
       </button>
@@ -79,7 +79,7 @@ function PageSizeDropdown({
       {isOpen ? (
         <div
           role="listbox"
-          className="absolute bottom-full end-0 z-50 mb-2 w-28 overflow-hidden rounded-xl border border-border/75 bg-card/95 p-1.5 shadow-lift backdrop-blur-xl"
+          className="absolute bottom-[calc(100%+0.5rem)] end-0 z-[80] w-28 overflow-hidden rounded-xl border border-border/75 bg-card/95 p-1.5 shadow-lift backdrop-blur-xl"
         >
           {PAGE_SIZE_OPTIONS.map((option) => {
             const isSelected = option === value;
@@ -125,25 +125,26 @@ export function PaginationControls({
   }
 
   return (
-    <div className="mt-4 flex flex-col gap-3 border-t border-border/40 pt-4 lg:flex-row lg:items-center lg:justify-between">
-      <div className="flex flex-col gap-3 text-sm text-foreground/70 sm:flex-row sm:flex-wrap sm:items-center">
-        <span className="inline-flex h-10 items-center rounded-full bg-muted px-4">
+    <div className="relative mt-4 flex max-w-full flex-wrap items-center justify-between gap-2 overflow-visible border-t border-border/40 pt-4 text-xs text-foreground/70">
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+        <span className="inline-flex h-8 shrink-0 items-center whitespace-nowrap rounded-full bg-muted px-2 text-[11px] sm:px-3 sm:text-xs">
           {t("common.results")}: {total}
         </span>
-        <span className="inline-flex h-10 items-center rounded-full bg-muted px-4">
+        <span className="inline-flex h-8 shrink-0 items-center whitespace-nowrap rounded-full bg-muted px-2 text-[11px] sm:px-3 sm:text-xs">
           {t("common.page")} {page} {t("common.of")} {totalPages}
         </span>
-        <div className="inline-flex h-10 items-center overflow-visible rounded-full border border-border/70 bg-background shadow-sm">
-          <span className="flex h-full items-center border-e border-border/60 px-4 text-foreground/70">
+        <div className="inline-flex h-8 shrink-0 items-center overflow-visible rounded-full border border-border/70 bg-background shadow-sm">
+          <span className="flex h-full items-center whitespace-nowrap border-e border-border/60 px-2 text-[11px] text-foreground/70 sm:px-3 sm:text-xs">
             {t("common.perPage")}
           </span>
           <PageSizeDropdown value={pageSize} onChange={onPageSizeChange} />
         </div>
       </div>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-1.5">
         <Button
           type="button"
           variant="secondary"
+          className="h-8 whitespace-nowrap px-2.5 text-[11px] sm:px-3 sm:text-xs"
           onClick={() => onPageChange(page - 1)}
           disabled={page <= 1 || isFetching}
         >
@@ -152,6 +153,7 @@ export function PaginationControls({
         <Button
           type="button"
           variant="secondary"
+          className="h-8 whitespace-nowrap px-2.5 text-[11px] sm:px-3 sm:text-xs"
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages || isFetching}
         >

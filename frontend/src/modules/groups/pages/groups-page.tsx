@@ -648,32 +648,32 @@ export function GroupsPage() {
                     </Badge>
                   </div>
 
-                  <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex flex-wrap gap-2">
-                      <Link to={`/groups/${group.id}`}>
-                        <Button variant="secondary" className="min-w-28 whitespace-nowrap">
-                          <Eye size={16} />
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 flex-1 gap-2">
+                      <Link className="min-w-0 flex-1 sm:flex-none" to={`/groups/${group.id}`}>
+                        <Button variant="secondary" className="h-10 w-full min-w-0 whitespace-nowrap px-2 text-xs sm:h-11 sm:min-w-28 sm:px-3 sm:text-sm">
+                          <Eye className="shrink-0" size={15} />
                           {t("groups.details")}
                         </Button>
                       </Link>
                       <Button
                         variant="secondary"
                         type="button"
-                        className="min-w-28 whitespace-nowrap"
+                        className="h-10 min-w-0 flex-1 whitespace-nowrap px-2 text-xs sm:h-11 sm:min-w-28 sm:flex-none sm:px-3 sm:text-sm"
                         onClick={() => beginEditGroup(group)}
                       >
-                        <Pencil size={16} />
+                        <Pencil className="shrink-0" size={15} />
                         {t("groups.edit")}
                       </Button>
                     </div>
                     <Button
-                      variant="danger"
+                      variant="ghost"
                       type="button"
-                      className="min-w-28 whitespace-nowrap"
+                      className="h-10 shrink-0 whitespace-nowrap border border-destructive/30 bg-destructive/15 px-2 text-xs text-destructive shadow-sm hover:border-destructive/40 hover:bg-destructive/20 hover:text-destructive sm:h-11 sm:min-w-28 sm:px-3 sm:text-sm"
                       onClick={() => setGroupPendingDelete(group)}
                       disabled={deleteMutation.isPending && deleteMutation.variables === group.id}
                     >
-                      <Trash2 size={16} />
+                      <Trash2 className="shrink-0" size={15} />
                       {deleteMutation.isPending && deleteMutation.variables === group.id
                         ? t("common.loading")
                         : t("groups.delete")}

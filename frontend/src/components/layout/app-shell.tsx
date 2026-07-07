@@ -47,12 +47,13 @@ function ProviderSetupGuard() {
 
 export function AppShell({ children }: PropsWithChildren) {
   return (
-    <div className="min-h-screen lg:flex">
+    <div className="min-h-screen w-full overflow-x-clip lg:flex">
       <Sidebar />
-      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
+      <div className="hidden w-72 shrink-0 lg:block" aria-hidden="true" />
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col overflow-x-clip">
         <Topbar />
         <ProviderSetupGuard />
-        <main className="mx-auto w-full max-w-[1540px] flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        <main className="mx-auto min-w-0 w-full max-w-[1540px] flex-1 overflow-x-clip px-3 py-6 sm:px-6 lg:px-8">{children}</main>
       </div>
     </div>
   );

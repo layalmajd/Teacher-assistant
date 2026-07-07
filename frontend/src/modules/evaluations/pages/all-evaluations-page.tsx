@@ -2,7 +2,7 @@
 import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { Badge } from "@/components/shared/badge";
@@ -18,6 +18,30 @@ import { fetchGroups } from "@/services/groups";
 import type { AssignmentGroup } from "@/types/api";
 
 const DEFAULT_PAGE_SIZE = 10;
+const ALL_EVALUATIONS_RETURN_STATE_KEY = "allEvaluationsReturnState";
+
+type AllEvaluationsRouteState = {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  groupFilter?: string;
+  expandedId?: string | null;
+  focusEvaluationId?: string;
+};
+
+function readStoredReturnState() {
+  const rawState = sessionStorage.getItem(ALL_EVALUATIONS_RETURN_STATE_KEY);
+  if (!rawState) {
+    return null;
+  }
+
+  sessionStorage.removeItem(ALL_EVALUATIONS_RETURN_STATE_KEY);
+  try {
+    return JSON.parse(rawState) as AllEvaluationsRouteState;
+  } catch {
+    return null;
+  }
+}
 
 function GroupFilterDropdown({
   groups,
@@ -157,11 +181,17 @@ function GroupFilterDropdown({
 
 export function AllEvaluationsPage() {
   const { t } = useTranslation();
-  const [search, setSearch] = useState("");
-  const [groupFilter, setGroupFilter] = useState("all");
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const location = useLocation();
+  const routeState = (location.state as AllEvaluationsRouteState | null) ?? readStoredReturnState();
+  const didMountRef = useRef(false);
+  const [search, setSearch] = useState(() => routeState?.search ?? "");
+  const [groupFilter, setGroupFilter] = useState(() => routeState?.groupFilter ?? "all");
+  const [page, setPage] = useState(() => routeState?.page ?? 1);
+  const [pageSize, setPageSize] = useState(() => routeState?.pageSize ?? DEFAULT_PAGE_SIZE);
+  const [expandedId, setExpandedId] = useState<string | null>(() => routeState?.expandedId ?? null);
+  const [focusEvaluationId, setFocusEvaluationId] = useState<string | null>(
+    () => routeState?.focusEvaluationId ?? null,
+  );
 
   const evaluationsQuery = useQuery({
     queryKey: ["all-evaluations"],
@@ -195,8 +225,13 @@ export function AllEvaluationsPage() {
   }, [evaluationsQuery.data, groupFilter, search]);
 
   useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
     setPage(1);
     setExpandedId(null);
+    setFocusEvaluationId(null);
   }, [groupFilter, search]);
 
   useEffect(() => {
@@ -208,6 +243,31 @@ export function AllEvaluationsPage() {
   }, [filteredEvaluations.length, page, pageSize]);
 
   const visibleEvaluations = filteredEvaluations.slice((page - 1) * pageSize, page * pageSize);
+  const buildReturnState = (evaluationId: string): AllEvaluationsRouteState => ({
+    page,
+    pageSize,
+    search,
+    groupFilter,
+    expandedId,
+    focusEvaluationId: evaluationId,
+  });
+
+  useEffect(() => {
+    if (!focusEvaluationId || !visibleEvaluations.some((evaluation) => evaluation.id === focusEvaluationId)) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      const element = document.getElementById(`evaluation-${focusEvaluationId}`);
+      element?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      element?.focus({ preventScroll: true });
+    }, 150);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [focusEvaluationId, visibleEvaluations]);
 
   return (
     <div className="space-y-6">
@@ -238,7 +298,13 @@ export function AllEvaluationsPage() {
             {visibleEvaluations.map((evaluation) => (
               <div
                 key={evaluation.id}
-                className="overflow-hidden rounded-2xl border border-border/60 bg-background/85"
+                id={`evaluation-${evaluation.id}`}
+                tabIndex={-1}
+                className={cn(
+                  "overflow-hidden rounded-2xl border border-border/60 bg-background/85 outline-none transition duration-300",
+                  focusEvaluationId === evaluation.id &&
+                    "border-primary bg-primary/15 shadow-[0_0_0_4px_hsl(var(--primary)/0.18),0_18px_42px_hsl(var(--primary)/0.16)] ring-4 ring-primary/35",
+                )}
               >
                 <div className="space-y-3 p-4">
                   <div className="min-w-0 space-y-2 text-start">
@@ -294,12 +360,42 @@ export function AllEvaluationsPage() {
                       ? t("evaluations.hideQuickSummary")
                       : t("evaluations.quickSummary")}
                   </Button>
-                  <Link className="w-full sm:w-auto" to={`/evaluations/${evaluation.id}`}>
+                  <Link
+                    className="w-full sm:w-auto"
+                    to={`/evaluations/${evaluation.id}`}
+                    onClick={() => {
+                      sessionStorage.setItem(
+                        ALL_EVALUATIONS_RETURN_STATE_KEY,
+                        JSON.stringify(buildReturnState(evaluation.id)),
+                      );
+                    }}
+                    state={{
+                      returnTo: {
+                        pathname: "/evaluations",
+                        state: buildReturnState(evaluation.id),
+                      },
+                    }}
+                  >
                     <Button className="h-10 w-full px-4 text-sm sm:w-auto" type="button">
                       {t("evaluations.viewEvaluation")}
                     </Button>
                   </Link>
-                  <Link className="w-full sm:w-auto" to={`/evaluations/${evaluation.id}#manual-adjustments`}>
+                  <Link
+                    className="w-full sm:w-auto"
+                    to={`/evaluations/${evaluation.id}#manual-adjustments`}
+                    onClick={() => {
+                      sessionStorage.setItem(
+                        ALL_EVALUATIONS_RETURN_STATE_KEY,
+                        JSON.stringify(buildReturnState(evaluation.id)),
+                      );
+                    }}
+                    state={{
+                      returnTo: {
+                        pathname: "/evaluations",
+                        state: buildReturnState(evaluation.id),
+                      },
+                    }}
+                  >
                     <Button className="h-10 w-full px-4 text-sm sm:w-auto" variant="ghost" type="button">
                       {t("evaluations.editScore")}
                     </Button>

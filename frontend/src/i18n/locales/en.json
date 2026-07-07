@@ -264,6 +264,7 @@
   "providers.apiKeyHelpGemini": "Get your key from Google AI Studio > Get API key > Create API key.",
   "providers.apiKeyHelpDeepSeek": "Get your key from DeepSeek Platform > API Keys > Create.",
   "providers.apiKeyHelpGroq": "Get your key from Groq Console > API Keys > Create API Key.",
+  "providers.groqQuotaNote": "Note: Groq may include a free quota depending on your account, with usage and rate limits set by Groq.",
   "providers.apiKeyHelpLink": "Open key page",
   "providers.apiKeyNotRequired": "Ollama runs locally and does not require an API key. Start Ollama and pull the selected model before testing the connection.",
   "providers.apiKeyValidation": "API key must be at least 8 characters.",

@@ -264,6 +264,7 @@
   "providers.apiKeyHelpGemini": "للحصول على المفتاح: من Google AI Studio > Get API key > Create API key.",
   "providers.apiKeyHelpDeepSeek": "للحصول على المفتاح: من لوحة DeepSeek Platform > API Keys > Create.",
   "providers.apiKeyHelpGroq": "للحصول على المفتاح: من Groq Console > API Keys > Create API Key.",
+  "providers.groqQuotaNote": "ملاحظة: قد تتوفر حصة مجانية في Groq حسب حسابك، مع حدود استخدام ومعدلات طلبات يحددها Groq.",
   "providers.apiKeyHelpLink": "فتح رابط إنشاء المفتاح",
   "providers.apiKeyNotRequired": "Ollama يعمل محليًا ولا يحتاج إلى API key. شغّل Ollama واسحب النموذج المختار قبل اختبار الاتصال.",
   "providers.apiKeyValidation": "يجب أن يكون مفتاح API بطول 8 أحرف على الأقل.",
