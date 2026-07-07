@@ -19,6 +19,8 @@ import type { AssignmentGroup } from "@/types/api";
 
 const DEFAULT_PAGE_SIZE = 10;
 const ALL_EVALUATIONS_RETURN_STATE_KEY = "allEvaluationsReturnState";
+const RETURN_FOCUS_SCROLL_DELAY_MS = 150;
+const RETURN_FOCUS_HIGHLIGHT_DURATION_MS = 2500;
 
 type AllEvaluationsRouteState = {
   page?: number;
@@ -257,16 +259,27 @@ export function AllEvaluationsPage() {
       return;
     }
 
-    const timeoutId = window.setTimeout(() => {
+    const scrollTimeoutId = window.setTimeout(() => {
       const element = document.getElementById(`evaluation-${focusEvaluationId}`);
       element?.scrollIntoView({
         behavior: "smooth",
         block: "center",
       });
       element?.focus({ preventScroll: true });
-    }, 150);
+    }, RETURN_FOCUS_SCROLL_DELAY_MS);
 
-    return () => window.clearTimeout(timeoutId);
+    const clearHighlightTimeoutId = window.setTimeout(() => {
+      const element = document.getElementById(`evaluation-${focusEvaluationId}`);
+      if (element && document.activeElement === element) {
+        element.blur();
+      }
+      setFocusEvaluationId(null);
+    }, RETURN_FOCUS_HIGHLIGHT_DURATION_MS);
+
+    return () => {
+      window.clearTimeout(scrollTimeoutId);
+      window.clearTimeout(clearHighlightTimeoutId);
+    };
   }, [focusEvaluationId, visibleEvaluations]);
 
   return (
@@ -301,9 +314,9 @@ export function AllEvaluationsPage() {
                 id={`evaluation-${evaluation.id}`}
                 tabIndex={-1}
                 className={cn(
-                  "overflow-hidden rounded-2xl border border-border/60 bg-background/85 outline-none transition duration-300",
+                  "overflow-hidden rounded-2xl border border-border/60 bg-background/85 outline-none transition duration-700",
                   focusEvaluationId === evaluation.id &&
-                    "border-primary bg-primary/15 shadow-[0_0_0_4px_hsl(var(--primary)/0.18),0_18px_42px_hsl(var(--primary)/0.16)] ring-4 ring-primary/35",
+                    "border-primary/35 bg-primary/5 shadow-[0_0_0_2px_hsl(var(--primary)/0.10),0_10px_28px_hsl(var(--primary)/0.08)] ring-1 ring-primary/15",
                 )}
               >
                 <div className="space-y-3 p-4">
