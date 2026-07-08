@@ -2176,7 +2176,7 @@ export function SubmissionPage() {
         </Card>
       ) : null}
       {missingStudentTotal ? (
-        <Card className="p-5">
+        <Card className="p-4 sm:p-5">
           <div className="mb-4 space-y-1">
             <h3 className="text-lg font-semibold">
               {t("submissions.missingStudentIdsTitle")}
@@ -2185,7 +2185,81 @@ export function SubmissionPage() {
               {t("submissions.missingStudentIdsHint")}
             </p>
           </div>
-          <div className="overflow-x-auto">
+          <div className="space-y-3 md:hidden">
+            {missingStudentIdSubmissions.map((submission) => {
+              const isSaving =
+                saveStudentIdMutation.isPending &&
+                saveStudentIdMutation.variables?.submissionId === submission.id;
+              const isDeleting =
+                deleteSubmissionMutation.isPending &&
+                deleteSubmissionMutation.variables === submission.id;
+
+              return (
+                <div
+                  key={submission.id}
+                  className="rounded-2xl border border-border/60 bg-background/80 p-3 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-foreground/45">
+                        {t("common.filename")}
+                      </p>
+                      <p
+                        className="mt-1 break-words text-sm font-bold leading-6 text-foreground"
+                        dir="auto"
+                      >
+                        {submission.original_filename}
+                      </p>
+                    </div>
+                    <Badge>{t(`state.${submission.status}`)}</Badge>
+                  </div>
+
+                  <label className="mt-3 block text-xs font-bold text-foreground/60">
+                    {t("common.studentId")}
+                  </label>
+                  <div className="mt-2 grid min-w-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2">
+                    <Input
+                      className="min-w-0 flex-1"
+                      value={studentIdDrafts[submission.id] ?? ""}
+                      onChange={(event) =>
+                        setStudentIdDrafts((current) => ({
+                          ...current,
+                          [submission.id]: normalizeStudentIdInput(
+                            event.target.value,
+                          ),
+                        }))
+                      }
+                      inputMode="numeric"
+                      pattern="\d{5,}"
+                      placeholder={t("submissions.manualStudentIdPlaceholder")}
+                    />
+                    <Button
+                      type="button"
+                      className="h-11 shrink-0 px-3 text-xs"
+                      onClick={() => handleSaveStudentId(submission.id)}
+                      disabled={isSaving}
+                    >
+                      {isSaving
+                        ? t("common.loading")
+                        : t("submissions.saveStudentId")}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      type="button"
+                      className="h-10 w-10 rounded-xl px-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                      onClick={() => setSubmissionPendingDelete(submission)}
+                      disabled={isDeleting}
+                      title={t("submissions.deleteSubmission")}
+                      aria-label={t("submissions.deleteSubmission")}
+                    >
+                      <Trash2 size={16} />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="hidden overflow-x-auto md:block">
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="border-b border-border/60 text-right">
