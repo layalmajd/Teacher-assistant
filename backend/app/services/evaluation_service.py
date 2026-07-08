@@ -57,6 +57,21 @@ class EvaluationService:
             provider_config_id=payload.provider_config_id,
             provider_name=payload.provider_name,
         )
+        latest_evaluation = await self.evaluation_repository.get_latest_for_submission(
+            submission.id,
+            instructor_id,
+        )
+        if self._can_reuse_latest_evaluation(
+            latest_evaluation=latest_evaluation,
+            submission=submission,
+            provider_config=provider_config,
+        ):
+            return await self._reuse_latest_evaluation(
+                instructor_id=instructor_id,
+                submission=submission,
+                provider_config=provider_config,
+                latest_evaluation=latest_evaluation,
+            )
 
         prompt = build_evaluation_prompt(
             group=group,
@@ -428,6 +443,112 @@ class EvaluationService:
         )
         await self.session.commit()
         return await self.get_by_id(instructor_id, evaluation_id)
+
+    def _can_reuse_latest_evaluation(
+        self,
+        *,
+        latest_evaluation: EvaluationResult | None,
+        submission,
+        provider_config,
+    ) -> bool:
+        if not latest_evaluation:
+            return False
+        if latest_evaluation.provider_config_id != provider_config.id:
+            return False
+        if latest_evaluation.provider_name != provider_config.provider_name:
+            return False
+        if latest_evaluation.model_name != provider_config.model_name:
+            return False
+        if any(score.manual_score is not None for score in latest_evaluation.criterion_scores):
+            return False
+
+        current_criteria_ids = {criterion.id for criterion in submission.group.criteria}
+        latest_criteria_ids = {score.criterion_id for score in latest_evaluation.criterion_scores}
+        if latest_criteria_ids != current_criteria_ids:
+            return False
+
+        freshness_dates = [
+            submission.group.updated_at,
+            *(criterion.updated_at for criterion in submission.group.criteria),
+        ]
+        if submission.content_cache:
+            freshness_dates.append(submission.content_cache.updated_at)
+        return latest_evaluation.created_at >= max(freshness_dates)
+
+    async def _reuse_latest_evaluation(
+        self,
+        *,
+        instructor_id: str,
+        submission,
+        provider_config,
+        latest_evaluation: EvaluationResult,
+    ) -> EvaluationResult:
+        await self.evaluation_repository.clear_latest_flags(submission.id)
+        evaluation_number = await self.evaluation_repository.next_evaluation_number(submission.id)
+        evaluation_result = await self.evaluation_repository.create_result(
+            EvaluationResult(
+                submission_id=submission.id,
+                submission=submission,
+                provider_config_id=provider_config.id,
+                provider_name=provider_config.provider_name,
+                model_name=provider_config.model_name,
+                evaluation_number=evaluation_number,
+                is_latest=True,
+                total_ai_score=latest_evaluation.total_ai_score,
+                final_adjusted_score=latest_evaluation.final_adjusted_score,
+                ai_feedback=latest_evaluation.ai_feedback,
+                raw_ai_response=latest_evaluation.raw_ai_response,
+            )
+        )
+
+        latest_scores_by_criterion = {
+            score.criterion_id: score
+            for score in latest_evaluation.criterion_scores
+        }
+        created_scores: list[CriterionScore] = []
+        for criterion in submission.group.criteria:
+            previous_score = latest_scores_by_criterion[criterion.id]
+            created_score = await self.evaluation_repository.create_criterion_score(
+                CriterionScore(
+                    result_id=evaluation_result.id,
+                    criterion_id=criterion.id,
+                    ai_score=previous_score.ai_score,
+                    manual_score=None,
+                    feedback=previous_score.feedback,
+                )
+            )
+            created_scores.append(created_score)
+
+        evaluation_result.total_ai_score = self._calculate_total_ai_score(
+            evaluation_result,
+            score_items=created_scores,
+        )
+        evaluation_result.final_adjusted_score = self._calculate_final_adjusted_score(
+            evaluation_result,
+            score_items=created_scores,
+        )
+        await self.evaluation_repository.save_result(evaluation_result)
+
+        submission.status = SubmissionStatus.COMPLETED
+        submission.error_message = None
+        submission.processed_at = datetime.now(timezone.utc)
+        await self.submission_repository.save_submission(submission)
+        await self.submission_repository.mark_processed(submission)
+        await self.audit_service.log(
+            instructor_id=instructor_id,
+            action="evaluation.reused",
+            entity_type="evaluation_result",
+            entity_id=evaluation_result.id,
+            metadata_json={
+                "provider_name": provider_config.provider_name.value,
+                "reused_from_evaluation_id": latest_evaluation.id,
+            },
+        )
+        await self.session.commit()
+        return await self.evaluation_repository.get_by_id_for_instructor(
+            evaluation_result.id,
+            instructor_id,
+        )
 
     def _normalize_score(
         self,

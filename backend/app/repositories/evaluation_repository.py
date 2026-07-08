@@ -61,6 +61,28 @@ class EvaluationRepository:
         )
         return result.scalar_one_or_none()
 
+    async def get_latest_for_submission(
+        self, submission_id: str, instructor_id: str
+    ) -> EvaluationResult | None:
+        result = await self.session.execute(
+            select(EvaluationResult)
+            .join(EvaluationResult.submission)
+            .join(Submission.group)
+            .where(
+                EvaluationResult.submission_id == submission_id,
+                AssignmentGroup.instructor_id == instructor_id,
+            )
+            .options(
+                selectinload(EvaluationResult.criterion_scores).selectinload(CriterionScore.criterion),
+                selectinload(EvaluationResult.submission)
+                .selectinload(Submission.group)
+                .selectinload(AssignmentGroup.criteria),
+            )
+            .order_by(EvaluationResult.evaluation_number.desc(), EvaluationResult.created_at.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
     async def next_evaluation_number(self, submission_id: str) -> int:
         result = await self.session.execute(
             select(func.count(EvaluationResult.id)).where(EvaluationResult.submission_id == submission_id)
