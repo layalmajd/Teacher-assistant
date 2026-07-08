@@ -34,7 +34,10 @@ class GeminiProvider(BaseAIProvider):
             response = await self.http_client.post(
                 f"{self.base_url}/models/{payload.model_name}:generateContent",
                 params={"key": payload.api_key},
-                json={"contents": [{"parts": [{"text": payload.prompt}]}]},
+                json={
+                    "contents": [{"parts": [{"text": payload.prompt}]}],
+                    "generationConfig": {"temperature": 0},
+                },
             )
             response.raise_for_status()
         except HTTPStatusError as exc:

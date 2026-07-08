@@ -42,6 +42,7 @@ class DeepSeekProvider(BaseAIProvider):
                     "model": payload.model_name,
                     "messages": [{"role": "user", "content": payload.prompt}],
                     "stream": False,
+                    "temperature": 0,
                 },
             )
             response.raise_for_status()

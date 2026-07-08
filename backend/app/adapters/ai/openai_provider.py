@@ -40,6 +40,7 @@ class OpenAIProvider(BaseAIProvider):
                 headers={"Authorization": f"Bearer {payload.api_key}"},
                 json={
                     "model": payload.model_name,
+                    "temperature": 0,
                     "input": [
                         {
                             "role": "user",
