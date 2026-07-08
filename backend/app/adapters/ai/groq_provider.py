@@ -419,12 +419,6 @@ Evaluation method:
 - If earned_points is less than max_points, at least one requirements_audit item must be "partial" or "missing"; otherwise the score and feedback are inconsistent.
 - Use only positive evidence from the submission. A heading, section title, criterion name, or generic sentence is not enough.
 - If the submission explicitly says something is missing, not provided, not explained, or will be done later, treat that as evidence of absence.
-- requirements_audit status definitions:
-  * "met" means the submission gives clear, direct, usable evidence for the full required item.
-  * "partial" means the submission gives relevant evidence, but it is incomplete, too vague, short of a required count, or missing a required subpart.
-  * "missing" means no clear usable evidence is present, or the submission explicitly says the item is absent/not provided/not done yet.
-- Keep the same status for the same evidence. Do not switch a requirement between "met" and "partial" because of style, length, or general quality unless the teacher_requirement explicitly requires those qualities.
-- Do not mark a requirement "met" from a heading, label, filename, or generic mention alone. It needs concrete content from the submission.
 - Give proportional partial credit for explicit required parts that are present, even if other parts of the same criterion are missing.
 - Do not use all-or-nothing scoring unless the teacher explicitly says the criterion is binary/pass-fail.
 - Return earned_points from 0 to that criterion's max_points. Do not return weighted percentages as earned_points.
@@ -522,7 +516,6 @@ Critical corrections:
 - Every non-manual criterion must include requirements_audit with concrete evidence for met items.
 - Missing audit evidence must be "Not found".
 - If any requirements_audit item is partial or missing, the criterion cannot receive full score.
-- Use the same status definitions every time: met = full direct evidence, partial = relevant but incomplete evidence, missing = no usable evidence or explicit absence.
 - Put improvement suggestions only in improvement_suggestions.
 - Negative statements such as "no real entities", "not provided", or "will be tested later" prove absence, not fulfillment.
 
