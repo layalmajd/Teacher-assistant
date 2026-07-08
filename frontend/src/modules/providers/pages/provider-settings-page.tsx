@@ -215,6 +215,7 @@ export function ProviderSettingsPage() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const [editingProviderId, setEditingProviderId] = useState<string | null>(null);
+  const [providerPendingDelete, setProviderPendingDelete] = useState<ProviderConfig | null>(null);
   const isEditing = Boolean(editingProviderId);
   const providersQuery = useQuery({ queryKey: ["providers"], queryFn: fetchProviders });
   const usageQuery = useQuery({ queryKey: ["provider-usage"], queryFn: fetchProviderUsage });
@@ -313,14 +314,15 @@ export function ProviderSettingsPage() {
   });
   const deleteMutation = useMutation({
     mutationFn: (providerId: string) => deleteProvider(providerId),
-    onSuccess: () => {
-      if (editingProviderId) {
+    onSuccess: (_, deletedProviderId) => {
+      setProviderPendingDelete(null);
+      if (editingProviderId === deletedProviderId) {
         setEditingProviderId(null);
         resetFormToCreateDefaults();
       }
       void queryClient.invalidateQueries({ queryKey: ["providers"] });
       void queryClient.invalidateQueries({ queryKey: ["provider-usage"] });
-      toast.success(t("common.delete"));
+      toast.success(t("providers.deleteSuccess"));
     },
     onError: (error: Error) => toast.error(getUserFacingErrorMessage(error)),
   });
@@ -347,15 +349,7 @@ export function ProviderSettingsPage() {
   };
 
   const handleDelete = (provider: ProviderConfig) => {
-    const confirmed = window.confirm(
-      t("providers.deleteConfirm", {
-        provider: provider.provider_name,
-      }),
-    );
-    if (!confirmed) {
-      return;
-    }
-    deleteMutation.mutate(provider.id);
+    setProviderPendingDelete(provider);
   };
 
   return (
@@ -570,10 +564,12 @@ export function ProviderSettingsPage() {
                     variant="ghost"
                     type="button"
                     onClick={() => handleDelete(provider)}
-                    disabled={deleteMutation.isPending}
+                    disabled={deleteMutation.isPending && deleteMutation.variables === provider.id}
                     className="h-10 min-w-0 whitespace-nowrap rounded-xl border border-destructive/25 bg-destructive/5 px-2 text-[11px] leading-4 text-destructive shadow-sm hover:border-destructive/35 hover:bg-destructive/10 hover:text-destructive sm:px-3 sm:text-xs"
                   >
-                    {t("common.delete")}
+                    {deleteMutation.isPending && deleteMutation.variables === provider.id
+                      ? t("common.loading")
+                      : t("common.delete")}
                   </Button>
                 </div>
               </div>
@@ -581,6 +577,44 @@ export function ProviderSettingsPage() {
           ))}
         </div>
       </div>
+
+      {providerPendingDelete ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm">
+          <Card className="w-full max-w-lg p-6 shadow-2xl">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <h3 className="text-xl font-semibold">{t("providers.deleteDialogTitle")}</h3>
+                <p className="text-sm leading-7 text-foreground/75">
+                  {t("providers.deleteConfirm", {
+                    provider: providerPendingDelete.provider_name,
+                    model: providerPendingDelete.model_name,
+                  })}
+                </p>
+              </div>
+              <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <Button
+                  variant="ghost"
+                  type="button"
+                  className="sm:min-w-28"
+                  onClick={() => setProviderPendingDelete(null)}
+                  disabled={deleteMutation.isPending}
+                >
+                  {t("common.cancel")}
+                </Button>
+                <Button
+                  variant="danger"
+                  type="button"
+                  className="sm:min-w-32"
+                  onClick={() => deleteMutation.mutate(providerPendingDelete.id)}
+                  disabled={deleteMutation.isPending}
+                >
+                  {deleteMutation.isPending ? t("common.loading") : t("common.delete")}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      ) : null}
     </div>
   );
 }
