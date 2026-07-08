@@ -2,6 +2,8 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
+from app.utils.prompt_builder import parse_explicit_penalties
+
 
 @dataclass(frozen=True)
 class RequirementAuditItem:
@@ -253,6 +255,7 @@ def validate_and_correct_criterion_score(
         earned_points=earned_points,
         feedback=feedback,
         audit_items=audit_items,
+        allow_raise=not parse_explicit_penalties(criterion_description),
         issues=issues,
     )
 
@@ -317,6 +320,7 @@ def _cap_points_by_audit_coverage(
     earned_points: float,
     feedback: str,
     audit_items: list[RequirementAuditItem],
+    allow_raise: bool,
     issues: list[str],
 ) -> tuple[float, str]:
     if not audit_items:
@@ -331,8 +335,20 @@ def _cap_points_by_audit_coverage(
     )
     coverage_ratio = max(0.0, min(weighted_coverage / len(audit_items), 1.0))
     capped_points = round(max_points * coverage_ratio, 2)
-    if capped_points >= earned_points:
+    if capped_points == earned_points:
         return earned_points, feedback
+    if capped_points > earned_points:
+        if not allow_raise:
+            return earned_points, feedback
+        issues.append(
+            f"{criterion_id}: raised earned_points from {_format_points(earned_points)} "
+            f"to {_format_points(capped_points)} based on audit coverage ratio {_format_points(coverage_ratio * 100)}%"
+        )
+        feedback = _append_auto_correction(
+            feedback,
+            "[Auto-corrected: score aligned to audit coverage.]",
+        )
+        return capped_points, feedback
 
     issues.append(
         f"{criterion_id}: reduced earned_points from {_format_points(earned_points)} "

@@ -483,6 +483,55 @@ def test_validation_keeps_deduction_with_specific_gap() -> None:
     assert any("audit coverage ratio" in issue for issue in issues)
 
 
+def test_validation_raises_low_score_to_same_audit_coverage() -> None:
+    earned, feedback, audit_items, needs_review, issues = validate_and_correct_criterion_score(
+        criterion_id="cr_01",
+        criterion_name="Tables",
+        max_points=20,
+        earned_points=5,
+        feedback="Two required tables are present but incomplete.",
+        audit_items=[
+            RequirementAuditItem(
+                requirement="4 tables",
+                status="partial",
+                evidence="Two tables are listed.",
+                missing_or_weak_reason="found 2, required 4",
+            )
+        ],
+        criterion_description="Requires 4 tables.",
+    )
+
+    assert earned == 12
+    assert audit_items[0].status == "partial"
+    assert needs_review is False
+    assert "[Auto-corrected: score aligned to audit coverage.]" in feedback
+    assert any("raised earned_points" in issue for issue in issues)
+
+
+def test_validation_does_not_raise_when_explicit_penalty_schedule_exists() -> None:
+    earned, feedback, audit_items, needs_review, issues = validate_and_correct_criterion_score(
+        criterion_id="cr_01",
+        criterion_name="Tables",
+        max_points=20,
+        earned_points=5,
+        feedback="A listed penalty was applied.",
+        audit_items=[
+            RequirementAuditItem(
+                requirement="4 tables",
+                status="partial",
+                evidence="Two tables are listed.",
+                missing_or_weak_reason="found 2, required 4",
+            )
+        ],
+        criterion_description="Requires 4 tables. -10 points when relationships are absent.",
+    )
+
+    assert earned == 5
+    assert audit_items[0].status == "partial"
+    assert needs_review is False
+    assert not any("raised earned_points" in issue for issue in issues)
+
+
 def test_validation_caps_score_by_partial_and_missing_coverage() -> None:
     earned, feedback, audit_items, needs_review, issues = validate_and_correct_criterion_score(
         criterion_id="cr_02",
