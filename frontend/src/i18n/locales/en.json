@@ -142,7 +142,7 @@
   "submissions.existingDuplicatesDetectedHint": "Some files match submissions that already exist in this group. Review them and explicitly choose whether to continue uploading each one.",
   "submissions.resolveExistingDuplicatesBeforeUpload": "Review previously uploaded files and choose whether to continue uploading them before starting the upload.",
   "submissions.continueExistingDuplicate": "Continue anyway",
-  "submissions.removeAllDuplicateFiles": "Remove all duplicate files",
+  "submissions.removeAllDuplicateFiles": "Remove duplicates",
   "submissions.cancelContinueExistingDuplicate": "Cancel continue",
   "submissions.alreadyEvaluatedExistingSubmission": "This file matches a submission that was already evaluated before.",
   "submissions.alreadyUploadedExistingSubmission": "This file matches a submission that was already uploaded before.",

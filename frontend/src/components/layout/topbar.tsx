@@ -49,7 +49,7 @@ export function Topbar() {
           </div>
           <div className="hidden min-w-0 items-center sm:flex">
             <p className="max-w-[220px] truncate text-sm font-bold leading-5 text-foreground md:max-w-[320px]">
-              {language === "ar" ? "مرحباً،" : "Welcome,"}{" "}
+              {language === "ar" ? "مرحباً\u2009،\u00A0" : "Welcome, "}
               <span className="text-primary">{displayName}</span>
               <span className="ms-1" aria-hidden="true">
                 👋

@@ -212,8 +212,9 @@ const getStatusBadgeColor = (status: string) => {
 };
 
 export function SubmissionPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const queryClient = useQueryClient();
+  const isEnglish = i18n.language?.startsWith("en");
   const [groupId, setGroupId] = useState(
     () => sessionStorage.getItem("activeGroupId") || "",
   );
@@ -1373,7 +1374,7 @@ export function SubmissionPage() {
                     <Button
                       type="button"
                       variant="ghost"
-                      className="h-10 self-start text-red-700 hover:bg-red-100 dark:text-red-300 dark:hover:bg-red-900/40"
+                      className="h-9 shrink-0 self-start whitespace-nowrap rounded-lg border border-red-200/80 bg-white/70 px-3 text-xs font-bold text-red-700 shadow-sm hover:bg-red-50 hover:text-red-800 dark:border-red-900/60 dark:bg-red-950/25 dark:text-red-300 dark:hover:bg-red-950/45 sm:self-center"
                       onClick={handleRemoveAllDuplicatePreviewFiles}
                     >
                       <span className="inline-flex items-center gap-2">
@@ -1391,9 +1392,13 @@ export function SubmissionPage() {
                         key={`duplicate:${row.localKey}`}
                         className="rounded-2xl border border-destructive/50 bg-destructive/10 p-3"
                       >
-                        <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+                        <div className="flex flex-col gap-3">
                           <div className="min-w-0 flex-1 space-y-1">
-                            <p className="break-words font-medium" dir="auto">
+                            <p
+                              className="max-w-full truncate text-start font-medium"
+                              dir="auto"
+                              title={row.original_filename}
+                            >
                               {row.original_filename}
                             </p>
                             <p className="break-words text-xs text-foreground/60">
@@ -1410,19 +1415,21 @@ export function SubmissionPage() {
                               ))}
                             </div>
                           </div>
-                          <Button
-                            variant="ghost"
-                            type="button"
-                            className="shrink-0"
-                            onClick={() =>
-                              handleRemovePreviewFile(row.localKey)
-                            }
-                          >
-                            <span className="inline-flex items-center gap-2">
-                              <Trash2 size={16} />
-                              {t("submissions.removeFromUpload")}
-                            </span>
-                          </Button>
+                          <div className="flex flex-wrap items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              type="button"
+                              className="h-9 shrink-0 whitespace-nowrap rounded-lg border border-red-200/80 bg-white/70 px-3 text-xs font-bold text-red-700 shadow-sm hover:bg-red-50 hover:text-red-800 dark:border-red-900/60 dark:bg-red-950/25 dark:text-red-300 dark:hover:bg-red-950/45"
+                              onClick={() =>
+                                handleRemovePreviewFile(row.localKey)
+                              }
+                            >
+                              <span className="inline-flex items-center gap-2">
+                                <Trash2 size={16} />
+                                {t("submissions.removeFromUpload")}
+                              </span>
+                            </Button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -1438,7 +1445,7 @@ export function SubmissionPage() {
                     <Button
                       type="button"
                       variant="ghost"
-                      className="h-10 self-start text-red-700 hover:bg-red-100 dark:text-red-300 dark:hover:bg-red-900/40"
+                      className="h-9 shrink-0 self-start whitespace-nowrap rounded-lg border border-red-200/80 bg-white/70 px-3 text-xs font-bold text-red-700 shadow-sm hover:bg-red-50 hover:text-red-800 dark:border-red-900/60 dark:bg-red-950/25 dark:text-red-300 dark:hover:bg-red-950/45 sm:self-center"
                       onClick={handleRemoveAllDuplicatePreviewFiles}
                     >
                       <span className="inline-flex items-center gap-2">
@@ -1488,9 +1495,15 @@ export function SubmissionPage() {
                           : "rounded-2xl border border-border/60 bg-background/70 p-3"
                       }
                     >
-                      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                      <div className="flex flex-col gap-3">
                         <div className="min-w-0 flex-1 space-y-1">
-                          <p className="break-words font-medium" dir="auto">{row.original_filename}</p>
+                          <p
+                            className="max-w-full truncate text-start font-medium"
+                            dir="auto"
+                            title={row.original_filename}
+                          >
+                            {row.original_filename}
+                          </p>
                           {row.duplicate_reasons.length ||
                           row.has_existing_match ? null : (
                             <p
@@ -1530,9 +1543,16 @@ export function SubmissionPage() {
                             </div>
                           ) : null}
                         </div>
-                        <div className="flex w-full shrink-0 flex-col gap-3 md:w-auto md:flex-row md:items-center">
+                        <div
+                          className={cn(
+                            "grid w-full gap-3 sm:items-center",
+                            isEnglish
+                              ? "sm:grid-cols-[minmax(10rem,1fr)_auto_auto]"
+                              : "sm:grid-cols-[minmax(12rem,1fr)_auto_auto]",
+                          )}
+                        >
                           {row.needs_student_id ? (
-                            <div className="w-full md:w-56">
+                            <div className="min-w-0">
                               <Input
                                 value={studentIdDrafts[row.localKey] ?? ""}
                                 onChange={(event) =>
@@ -1556,6 +1576,10 @@ export function SubmissionPage() {
                           <Button
                             variant="ghost"
                             type="button"
+                            className={cn(
+                              "h-10 whitespace-nowrap rounded-xl border border-red-200/80 bg-white/70 px-3 text-red-700 shadow-sm hover:bg-red-50 hover:text-red-800 dark:border-red-900/60 dark:bg-red-950/25 dark:text-red-300 dark:hover:bg-red-950/45",
+                              isEnglish && "h-10 px-3 text-xs",
+                            )}
                             onClick={() =>
                               handleRemovePreviewFile(row.localKey)
                             }
@@ -1575,6 +1599,10 @@ export function SubmissionPage() {
                                   : "primary"
                               }
                               type="button"
+                              className={cn(
+                                "whitespace-nowrap",
+                                isEnglish && "h-10 px-3 text-xs",
+                              )}
                               onClick={() =>
                                 setApprovedExistingDuplicateKeys((current) =>
                                   current.includes(row.localKey)
@@ -1645,7 +1673,10 @@ export function SubmissionPage() {
               <Button
                 variant="secondary"
                 type="button"
-                className="h-10 px-3 text-xs sm:text-sm"
+                className={cn(
+                  "h-10 px-3 text-xs sm:text-sm",
+                  isEnglish && "whitespace-nowrap px-4 text-xs",
+                )}
                 onClick={handleReEvaluateCompletedClick}
                 disabled={
                   isBatchActive ||
@@ -1661,7 +1692,10 @@ export function SubmissionPage() {
               <Button
                 variant={isBatchActive ? "secondary" : "primary"}
                 type="button"
-                className="h-10 px-3 text-xs sm:text-sm"
+                className={cn(
+                  "h-10 px-3 text-xs sm:text-sm",
+                  isEnglish && "whitespace-nowrap px-4 text-xs",
+                )}
                 onClick={handleEvaluateAllClick}
                 disabled={
                   isBatchActive
@@ -1712,6 +1746,10 @@ export function SubmissionPage() {
                 <Button
                   type="button"
                   variant="secondary"
+                  className={cn(
+                    "h-10 px-4",
+                    isEnglish && "min-w-32 whitespace-nowrap text-xs",
+                  )}
                   onClick={handleEvaluateAllClick}
                   disabled={
                     cancelBatchMutation.isPending ||
@@ -1785,7 +1823,12 @@ export function SubmissionPage() {
                           </p>
                         ) : null}
                       </div>
-                      <div className="flex flex-wrap gap-2 sm:w-36 sm:flex-col sm:items-stretch sm:pt-8">
+                      <div
+                        className={cn(
+                          "flex flex-wrap gap-2 sm:flex-col sm:items-stretch sm:pt-8",
+                          isEnglish ? "sm:w-40" : "sm:w-36",
+                        )}
+                      >
                         {actionState &&
                         (canEvaluateSubmission(
                           submission.status,
@@ -1795,7 +1838,10 @@ export function SubmissionPage() {
                           <Button
                             variant={actionState.variant}
                             type="button"
-                            className="h-10 px-3 text-xs"
+                            className={cn(
+                              "h-10 px-3 text-xs",
+                              isEnglish && "whitespace-nowrap text-[11px] leading-4",
+                            )}
                             onClick={() =>
                               evaluateMutation.mutate({
                                 submissionId: submission.id,
@@ -1814,7 +1860,10 @@ export function SubmissionPage() {
                         <Link to={`/submissions/${submission.id}/evaluations`}>
                           <Button
                             variant="secondary"
-                            className="h-10 w-full px-3 text-xs"
+                            className={cn(
+                              "h-10 w-full px-3 text-xs",
+                              isEnglish && "whitespace-nowrap text-[11px] leading-4",
+                            )}
                           >
                             {t("submissions.viewEvaluations")}
                           </Button>
@@ -1863,7 +1912,11 @@ export function SubmissionPage() {
                 placeholder={t("submissions.reportSearch")}
                 className="sm:w-72"
               />
-              <Button type="button" onClick={exportReportToExcel}>
+              <Button
+                type="button"
+                className={cn(isEnglish && "min-w-44 whitespace-nowrap")}
+                onClick={exportReportToExcel}
+              >
                 {t("submissions.exportExcel")}
               </Button>
             </div>
@@ -1880,7 +1933,7 @@ export function SubmissionPage() {
                   onClick={() => setActiveCriterionTab(criterionName)}
                   className={
                     activeCriterionTab === criterionName
-                      ? "max-w-[18rem] shrink-0 truncate rounded-full bg-primary px-3 py-2 text-xs font-semibold text-white sm:px-4 sm:text-sm"
+                      ? "max-w-[18rem] shrink-0 truncate rounded-full bg-primary px-3 py-2 text-xs font-semibold text-white dark:text-slate-950 sm:px-4 sm:text-sm"
                       : "max-w-[18rem] shrink-0 truncate rounded-full border border-border/60 bg-background px-3 py-2 text-xs font-semibold text-foreground/70 sm:px-4 sm:text-sm"
                   }
                   title={criterionName}
