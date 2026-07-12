@@ -184,6 +184,9 @@ export function EvaluationDetailPage() {
 
   const evaluation = evaluationQuery.data;
   const gradeScale = evaluation?.grade_scale ?? 100;
+  const summaryFeedback = evaluation?.ai_feedback?.trim() || "";
+  const summaryDirection = summaryFeedback ? getTextDirection(summaryFeedback) : undefined;
+  const summaryLanguage = summaryDirection === "rtl" ? "ar" : summaryDirection === "ltr" ? "en" : undefined;
   const watchedItems = form.watch("items");
   const liveAdjustedScore = useMemo(() => {
     if (!evaluation) {
@@ -236,10 +239,15 @@ export function EvaluationDetailPage() {
             />
           </div>
 
-          <div className="mt-5 rounded-2xl border border-border/55 bg-background/70 p-4 sm:p-5">
-            <h3 className="text-base font-bold">{t("evaluations.summaryFeedback")}</h3>
-            <p className="mt-2 max-w-5xl text-sm leading-7 text-foreground/70">
-              {evaluation?.ai_feedback || "-"}
+          <div
+            className="mt-5 rounded-2xl border border-border/55 bg-background/70 p-4 sm:p-5"
+            dir={summaryDirection ?? "auto"}
+          >
+            <h3 className="text-start text-base font-bold">
+              {t("evaluations.summaryFeedback", { lng: summaryLanguage })}
+            </h3>
+            <p className="mt-2 w-full text-start text-sm leading-7 text-foreground/70">
+              <MixedDirectionText text={summaryFeedback || "-"} />
             </p>
           </div>
         </Card>
