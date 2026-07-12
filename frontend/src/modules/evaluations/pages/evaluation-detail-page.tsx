@@ -95,6 +95,10 @@ function MixedDirectionText({ text }: { text: string }) {
   );
 }
 
+function getTextDirection(text: string): "ltr" | "rtl" {
+  return /[\u0600-\u06ff]/.test(text) ? "rtl" : "ltr";
+}
+
 function FeedbackDisplayBox({ text }: { text: string | null | undefined }) {
   const lines = (text || "")
     .replace(/\r/g, "")
@@ -104,10 +108,10 @@ function FeedbackDisplayBox({ text }: { text: string | null | undefined }) {
   return (
     <div
       className="min-h-44 w-full whitespace-pre-wrap rounded-xl border border-border/75 bg-card/70 px-3 py-2 text-sm font-medium leading-7 text-foreground outline-none"
-      dir="rtl"
+      dir="auto"
     >
       {lines.map((line, index) => (
-        <p key={`${line}-${index}`} className="text-right">
+        <p key={`${line}-${index}`} className="text-start" dir={getTextDirection(line)}>
           <MixedDirectionText text={line || " "} />
         </p>
       ))}
