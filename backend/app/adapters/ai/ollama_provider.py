@@ -15,14 +15,8 @@ from app.core.exceptions import ExternalServiceError, ValidationError
 from app.models.enums import ProviderName
 from app.utils.evaluation_response_audit import (
     append_audit_to_feedback,
-    append_cap_note,
-    align_score_with_fully_met_audit,
-    audit_consistency_errors,
-    cap_score_by_audit_consistency,
-    cap_score_by_explicit_evidence,
     normalize_requirements_audit,
-    should_apply_explicit_evidence_cap,
-    soften_generic_partial_audit_items,
+    validate_and_correct_criterion_score,
 )
 from app.utils.prompt_policy import build_grading_rules
 
@@ -170,8 +164,9 @@ class OllamaProvider(BaseAIProvider):
         normalized_scores: list[dict] = []
         weighted_total = 0.0
         has_numeric_score = False
+        validation_issues: list[str] = []
 
-        for criterion in payload.criteria:
+        for criterion_index, criterion in enumerate(payload.criteria):
             match_index = next(
                 (
                     index
@@ -203,66 +198,43 @@ class OllamaProvider(BaseAIProvider):
                 or item.get("audit")
                 or item.get("checklist")
             )
-            audit_items = soften_generic_partial_audit_items(audit_items)
-            audit_cap_note = None
-            if payload.enable_auto_score_adjustment:
-                normalized_score, audit_cap_note = cap_score_by_audit_consistency(
-                    criterion_name=criterion.name,
-                    audit_items=audit_items,
-                    normalized_score=normalized_score,
-                    grade_scale=float(payload.grade_scale),
-                    is_manual=criterion.is_manual,
-                    response_language=payload.response_language,
-                )
-                consistency_errors = audit_consistency_errors(
-                    criterion_name=criterion.name,
-                    audit_items=audit_items,
-                    normalized_score=normalized_score,
-                    grade_scale=float(payload.grade_scale),
-                    is_manual=criterion.is_manual,
-                )
-                if consistency_errors:
-                    raise ValidationError("; ".join(consistency_errors))
-                normalized_score, fully_met_adjusted = align_score_with_fully_met_audit(
-                    audit_items=audit_items,
-                    normalized_score=normalized_score,
-                    grade_scale=float(payload.grade_scale),
-                    is_manual=criterion.is_manual,
-                )
-            else:
-                fully_met_adjusted = False
-
-            feedback = (
-                self._default_feedback(
-                    criterion.name,
-                    payload=payload,
-                    missing_item=False,
-                    normalized_score=normalized_score,
-                )
-                if fully_met_adjusted
-                else self._coerce_feedback(item.get("feedback"))
-                or self._default_feedback(
-                    criterion.name,
-                    payload=payload,
-                    missing_item=False,
-                    normalized_score=normalized_score,
-                )
+            feedback = self._coerce_feedback(item.get("feedback")) or self._default_feedback(
+                criterion.name,
+                payload=payload,
+                missing_item=False,
+                normalized_score=normalized_score,
             )
+            needs_manual_review = False
+            if payload.enable_auto_score_adjustment:
+                if earned_points is None and normalized_score is not None and criterion.weight > 0:
+                    earned_points = (
+                        float(normalized_score) / float(payload.grade_scale)
+                    ) * float(criterion.weight)
+                (
+                    earned_points,
+                    feedback,
+                    audit_items,
+                    needs_manual_review,
+                    criterion_issues,
+                ) = validate_and_correct_criterion_score(
+                    criterion_id=f"cr_{criterion_index + 1:02d}",
+                    criterion_name=criterion.name,
+                    max_points=float(criterion.weight),
+                    earned_points=earned_points,
+                    feedback=feedback,
+                    audit_items=audit_items,
+                    criterion_description=criterion.description,
+                )
+                validation_issues.extend(criterion_issues)
+                if earned_points is not None and criterion.weight > 0:
+                    normalized_score = (
+                        float(earned_points) / float(criterion.weight)
+                    ) * float(payload.grade_scale)
             feedback = append_audit_to_feedback(
                 feedback,
                 audit_items,
                 response_language=payload.response_language,
             )
-            feedback = append_cap_note(feedback, audit_cap_note)
-            if payload.enable_auto_score_adjustment and should_apply_explicit_evidence_cap(audit_items):
-                normalized_score, cap_note = cap_score_by_explicit_evidence(
-                    criterion_description=criterion.description,
-                    submission_text=payload.submission_text,
-                    normalized_score=normalized_score,
-                    grade_scale=float(payload.grade_scale),
-                    response_language=payload.response_language,
-                )
-                feedback = append_cap_note(feedback, cap_note)
             if normalized_score is not None and criterion.weight > 0:
                 earned_points = (normalized_score / float(payload.grade_scale)) * float(criterion.weight)
 
@@ -277,6 +249,7 @@ class OllamaProvider(BaseAIProvider):
                     "ai_score": round(normalized_score, 2) if normalized_score is not None else None,
                     "feedback": feedback,
                     "requirements_audit": audit_items,
+                    "needs_manual_review": needs_manual_review,
                 }
             )
 
@@ -294,6 +267,7 @@ class OllamaProvider(BaseAIProvider):
 
         parsed["criterion_scores"] = normalized_scores
         parsed["total_score"] = round(weighted_total, 2) if has_numeric_score else None
+        parsed["_validation_issues"] = validation_issues
         return parsed
 
     def _salvage_payload(self, content: str, payload: EvaluationInput) -> dict:

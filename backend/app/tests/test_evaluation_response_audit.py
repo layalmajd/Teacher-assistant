@@ -1,6 +1,7 @@
 from app.utils.evaluation_response_audit import (
     RequirementAuditItem,
     align_score_with_fully_met_audit,
+    append_audit_to_feedback,
     append_points_breakdown_to_feedback,
     audit_consistency_errors,
     cap_score_by_audit_consistency,
@@ -340,7 +341,7 @@ def test_validation_corrects_full_score_with_partial_audit() -> None:
         criterion_description="Requires 4 relationships.",
     )
 
-    assert earned == 24
+    assert earned == 20
     assert "[Auto-corrected: score aligned to audit coverage.]" in feedback
     assert audit_items[-1].status == "partial"
     assert needs_review is False
@@ -450,7 +451,7 @@ def test_validation_keeps_partial_audit_deduction_when_checklist_still_has_unmet
         criterion_description="يشرح المشكلة ويتضمن 6 متطلبات وظيفية واضحة على الأقل و3 متطلبات غير وظيفية قابلة للقياس.",
     )
 
-    assert earned == 27.6
+    assert earned == 27
     assert audit_items[-1].status == "partial"
     assert needs_review is False
     assert "no specific unmet requirement" not in feedback
@@ -475,7 +476,7 @@ def test_validation_keeps_deduction_with_specific_gap() -> None:
         criterion_description="Requires 4 tables.",
     )
 
-    assert earned == 12
+    assert earned == 10
     assert audit_items[0].status == "partial"
     assert needs_review is False
     assert "Missing required tables" in feedback
@@ -501,7 +502,7 @@ def test_validation_raises_low_score_to_same_audit_coverage() -> None:
         criterion_description="Requires 4 tables.",
     )
 
-    assert earned == 12
+    assert earned == 10
     assert audit_items[0].status == "partial"
     assert needs_review is False
     assert "[Auto-corrected: score aligned to audit coverage.]" in feedback
@@ -568,10 +569,103 @@ def test_validation_caps_score_by_partial_and_missing_coverage() -> None:
         criterion_description="Requires success, failure, boundary, and permission test cases.",
     )
 
-    assert earned == 17.5
+    assert earned == 15.62
     assert needs_review is False
     assert "[Auto-corrected: score aligned to audit coverage.]" in feedback
     assert any("audit coverage ratio" in issue for issue in issues)
+
+
+def test_validation_gives_zero_credit_to_missing_requirements() -> None:
+    audit_items = [
+        RequirementAuditItem(
+            requirement=f"Requirement {index + 1}",
+            status="met" if index < 4 else "missing",
+            evidence=f"Evidence {index + 1}" if index < 4 else "Not found",
+            missing_or_weak_reason="" if index < 4 else "missing",
+        )
+        for index in range(10)
+    ]
+
+    earned, feedback, _, needs_review, issues = validate_and_correct_criterion_score(
+        criterion_id="cr_01",
+        criterion_name="General checklist",
+        max_points=20,
+        earned_points=10.4,
+        feedback="Four requirements are present.",
+        audit_items=audit_items,
+        criterion_description="Ten equally weighted requirements.",
+    )
+
+    assert earned == 8
+    assert needs_review is False
+    assert "[Auto-corrected: score aligned to audit coverage.]" in feedback
+    assert any("reduced earned_points from 10.4 to 8" in issue for issue in issues)
+
+
+def test_validation_uses_count_ratio_for_partial_requirement() -> None:
+    earned, _, _, _, _ = validate_and_correct_criterion_score(
+        criterion_id="cr_01",
+        criterion_name="Test cases",
+        max_points=12,
+        earned_points=12,
+        feedback="Some test cases are present.",
+        audit_items=[
+            RequirementAuditItem(
+                requirement="Six test cases",
+                status="partial",
+                evidence="Three test cases are listed.",
+                missing_or_weak_reason="found 3, required 6",
+            )
+        ],
+        criterion_description="Provide six test cases.",
+    )
+
+    assert earned == 6
+
+
+def test_validation_marks_unknown_audit_items_for_manual_review() -> None:
+    earned, _, _, needs_review, issues = validate_and_correct_criterion_score(
+        criterion_id="cr_01",
+        criterion_name="Ambiguous requirement",
+        max_points=10,
+        earned_points=10,
+        feedback="The evidence could not be classified.",
+        audit_items=[
+            RequirementAuditItem(
+                requirement="Deployment evidence",
+                status="unknown",
+                evidence="",
+                missing_or_weak_reason="The document content was unreadable.",
+            )
+        ],
+        criterion_description="Provide deployment evidence.",
+    )
+
+    assert earned == 0
+    assert needs_review is True
+    assert any("audit contains unknown items" in issue for issue in issues)
+
+
+def test_feedback_includes_every_audit_item_by_default() -> None:
+    audit_items = [
+        RequirementAuditItem(
+            requirement=f"Requirement {index + 1}",
+            status="missing",
+            evidence="Not found",
+            missing_or_weak_reason="missing",
+        )
+        for index in range(10)
+    ]
+
+    feedback = append_audit_to_feedback(
+        "Checklist result.",
+        audit_items,
+        response_language="en",
+    )
+
+    assert "Requirement 1" in feedback
+    assert "Requirement 10" in feedback
+    assert not feedback.rstrip().endswith("...")
 
 
 def test_validation_does_not_raise_full_marks_when_met_audit_lacks_evidence() -> None:

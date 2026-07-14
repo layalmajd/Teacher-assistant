@@ -78,10 +78,29 @@ _GENERIC_IMPROVEMENT_PATTERNS = (
 
 _AUDIT_STATUS_COVERAGE_WEIGHTS = {
     "met": 1.0,
-    "partial": 0.6,
-    "missing": 0.2,
-    "unknown": 0.2,
+    "missing": 0.0,
+    "unknown": 0.0,
 }
+
+_PARTIAL_COUNT_PATTERNS = (
+    re.compile(
+        r"\bfound\s+(\d+(?:\.\d+)?)\s*(?:,|;|of|out of)?\s*"
+        r"(?:but\s+)?required\s+(\d+(?:\.\d+)?)\b",
+        flags=re.IGNORECASE,
+    ),
+    re.compile(
+        r"\b(\d+(?:\.\d+)?)\s+(?:of|out of)\s+(\d+(?:\.\d+)?)\s+"
+        r"(?:required\s+)?(?:items?|requirements?|cases?|rules?|tables?|relationships?)\b",
+        flags=re.IGNORECASE,
+    ),
+    re.compile(
+        r"(?:تم\s+العثور\s+على|الموجود|وُجد|وجد)\s*(\d+(?:\.\d+)?)"
+        r".*?(?:المطلوب|من\s+أصل)\s*(\d+(?:\.\d+)?)",
+        flags=re.IGNORECASE,
+    ),
+)
+
+_DEFAULT_PARTIAL_COVERAGE = 0.5
 
 _CONCRETE_DEFICIENCY_PATTERNS = (
     "missing",
@@ -259,6 +278,12 @@ def validate_and_correct_criterion_score(
         issues=issues,
     )
 
+    if any(item.status == "unknown" for item in audit_items):
+        needs_manual_review = True
+        issues.append(
+            f"{criterion_id}: marked needs_manual_review because the audit contains unknown items"
+        )
+
     # Only forgive an unsupported deduction when the provider gave no checklist at all.
     # If any partial/missing audit item still remains after normalization, keep the
     # non-full score instead of silently restoring full marks.
@@ -330,9 +355,7 @@ def _cap_points_by_audit_coverage(
     if not has_unmet_items:
         return earned_points, feedback
 
-    weighted_coverage = sum(
-        _AUDIT_STATUS_COVERAGE_WEIGHTS.get(item.status, 0.2) for item in audit_items
-    )
+    weighted_coverage = sum(_audit_item_coverage(item) for item in audit_items)
     coverage_ratio = max(0.0, min(weighted_coverage / len(audit_items), 1.0))
     capped_points = round(max_points * coverage_ratio, 2)
     if capped_points == earned_points:
@@ -359,6 +382,35 @@ def _cap_points_by_audit_coverage(
         "[Auto-corrected: score aligned to audit coverage.]",
     )
     return capped_points, feedback
+
+
+def _audit_item_coverage(item: RequirementAuditItem) -> float:
+    if item.status == "partial":
+        return _partial_audit_coverage(item)
+    return _AUDIT_STATUS_COVERAGE_WEIGHTS.get(item.status, 0.0)
+
+
+def _partial_audit_coverage(item: RequirementAuditItem) -> float:
+    """Return evidence-based partial coverage, with a neutral fallback.
+
+    Count-bearing audit reasons such as ``found 2, required 4`` carry enough
+    information to calculate the fraction precisely. Qualitative partial
+    items use one-half credit instead of an arbitrary provider score.
+    """
+
+    for text in (item.missing_or_weak_reason, item.evidence):
+        if not text:
+            continue
+        for pattern in _PARTIAL_COUNT_PATTERNS:
+            match = pattern.search(text)
+            if not match:
+                continue
+            found = float(match.group(1))
+            required = float(match.group(2))
+            if required <= 0:
+                continue
+            return max(0.0, min(found / required, 1.0))
+    return _DEFAULT_PARTIAL_COVERAGE
 
 
 def _append_auto_correction(feedback: str, note: str) -> str:
@@ -435,7 +487,7 @@ def append_audit_to_feedback(
     audit_items: list[RequirementAuditItem],
     *,
     response_language: str,
-    max_items: int = 8,
+    max_items: int | None = None,
 ) -> str:
     if not audit_items:
         return feedback
@@ -448,7 +500,8 @@ def append_audit_to_feedback(
     )
     heading = "تفصيل البنود:" if is_arabic else "Requirement audit:"
     lines = [feedback.strip(), heading] if feedback.strip() else [heading]
-    for item in audit_items[:max_items]:
+    visible_items = audit_items if max_items is None else audit_items[:max_items]
+    for item in visible_items:
         status = status_labels.get(item.status, item.status)
         if is_arabic:
             detail = f"- {item.requirement}: {status}"
@@ -464,7 +517,7 @@ def append_audit_to_feedback(
                 detail += f"; reason: {item.missing_or_weak_reason}"
         lines.append(detail)
 
-    if len(audit_items) > max_items:
+    if max_items is not None and len(audit_items) > max_items:
         lines.append("..." if not is_arabic else "...")
     return "\n".join(lines)
 

@@ -239,22 +239,24 @@ class GroqProvider(BaseAIProvider):
                 improvement_suggestions = "\n".join(
                     [part for part in [improvement_suggestions, *moved_improvements] if part]
                 )
-            (
-                earned_points,
-                feedback,
-                audit_items,
-                needs_manual_review,
-                criterion_issues,
-            ) = validate_and_correct_criterion_score(
-                criterion_id=prompt_criterion_id,
-                criterion_name=criterion.name,
-                max_points=float(criterion.weight),
-                earned_points=earned_points,
-                feedback=feedback,
-                audit_items=audit_items,
-                criterion_description=criterion.description,
-            )
-            validation_issues.extend(criterion_issues)
+            needs_manual_review = False
+            if payload.enable_auto_score_adjustment:
+                (
+                    earned_points,
+                    feedback,
+                    audit_items,
+                    needs_manual_review,
+                    criterion_issues,
+                ) = validate_and_correct_criterion_score(
+                    criterion_id=prompt_criterion_id,
+                    criterion_name=criterion.name,
+                    max_points=float(criterion.weight),
+                    earned_points=earned_points,
+                    feedback=feedback,
+                    audit_items=audit_items,
+                    criterion_description=criterion.description,
+                )
+                validation_issues.extend(criterion_issues)
 
             normalized_score = None
             if earned_points is not None and criterion.weight > 0:
